@@ -1,11 +1,23 @@
 import { NextResponse } from "next/server";
+import { validateDealInput } from "@/lib/validations/deal-schema";
 import { enrichDealWithAI } from "@/lib/ai/prompts";
-import type { Deal } from "@/types/deal";
 
 export async function POST(request: Request) {
   try {
-    const deal = (await request.json()) as Deal;
-    const result = await enrichDealWithAI(deal);
+    const payload = await request.json();
+    const validation = validateDealInput(payload);
+
+    if (!validation.success) {
+      return NextResponse.json(
+        {
+          error: "Invalid deal payload.",
+          fieldErrors: validation.errors,
+        },
+        { status: 400 }
+      );
+    }
+
+    const result = await enrichDealWithAI(validation.data);
 
     return NextResponse.json(result);
   } catch {

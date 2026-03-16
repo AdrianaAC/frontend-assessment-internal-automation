@@ -1,52 +1,7 @@
-import type { Deal } from "@/types/deal";
 import ResultCard from "@/components/workflow/ResultCard";
 import StatusBadge from "@/components/workflow/StatusBadge";
 import WorkflowTimeline from "@/components/workflow/WorkflowTimeline";
-
-type WorkflowResponse = {
-  deal: Deal;
-  enrichment: {
-    projectClassification: {
-      projectType: string;
-      complexity: "low" | "medium" | "high";
-      riskLevel: "low" | "medium" | "high";
-      recommendedTemplate: string;
-    };
-    kickoffEmail: {
-      subject: string;
-      body: string;
-    };
-    teamsIntroMessage: string;
-    clickupTasks: Array<{
-      title: string;
-      description: string;
-      owner: string;
-      priority: "low" | "medium" | "high";
-    }>;
-  };
-  systems: {
-    sharepoint: {
-      status: string;
-      action: string;
-      sourceFolder: string;
-      destinationFolder: string;
-      message: string;
-    };
-    clickup: {
-      status: string;
-      projectName: string;
-      space: string;
-      folder: string;
-      message: string;
-    };
-    teams: {
-      status: string;
-      teamName: string;
-      channelName: string;
-      message: string;
-    };
-  };
-};
+import type { WorkflowResponse } from "@/types/workflow";
 
 type Props = {
   result: WorkflowResponse;
@@ -63,6 +18,11 @@ export default function WorkflowResult({ result }: Props) {
       title: "AI Enrichment",
       description: `The AI agent classified the project as ${result.enrichment.projectClassification.projectType}, assessed complexity as ${result.enrichment.projectClassification.complexity}, and generated kickoff communication plus starter tasks.`,
       status: "success" as const,
+    },
+    {
+      title: "Email Notification",
+      description: result.systems.email.message,
+      status: result.systems.email.status,
     },
     {
       title: "SharePoint Setup",
@@ -112,7 +72,51 @@ export default function WorkflowResult({ result }: Props) {
         </ResultCard>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <ResultCard title="Email Notification">
+          <div className="mb-4">
+            <StatusBadge status={result.systems.email.status} />
+          </div>
+
+          <div className="space-y-2 text-sm text-zinc-300">
+            <p>
+              <span className="text-zinc-500">Provider:</span>{" "}
+              {result.systems.email.provider}
+            </p>
+            <p>
+              <span className="text-zinc-500">Recipients:</span>{" "}
+              {result.systems.email.recipients.length}
+            </p>
+            <p>
+              <span className="text-zinc-500">Subject:</span>{" "}
+              {result.systems.email.subject}
+            </p>
+            <div className="pt-1">
+              <p className="text-zinc-500">To / CC:</p>
+              <ul className="mt-2 space-y-2">
+                {result.systems.email.recipients.map((recipient) => (
+                  <li
+                    key={recipient.address}
+                    className="rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2"
+                  >
+                    <p className="text-zinc-100">{recipient.name}</p>
+                    <p className="text-xs text-zinc-500">
+                      {recipient.role} - {recipient.address}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="pt-1">
+              <p className="text-zinc-500">Outlook payload</p>
+              <pre className="mt-2 overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-950 p-3 text-xs text-zinc-400">
+                {JSON.stringify(result.systems.email.payload, null, 2)}
+              </pre>
+            </div>
+            <p className="pt-2 text-zinc-400">{result.systems.email.message}</p>
+          </div>
+        </ResultCard>
+
         <ResultCard title="SharePoint">
           <div className="mb-4">
             <StatusBadge status={result.systems.sharepoint.status} />

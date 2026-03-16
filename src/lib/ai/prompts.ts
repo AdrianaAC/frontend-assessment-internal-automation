@@ -1,4 +1,8 @@
 import { getOpenAIClient } from "./openai";
+import {
+  extractJSONObject,
+  validateAIOutput,
+} from "@/lib/validations/ai-output-schema";
 import type { AIOutput } from "@/types/ai-output";
 import type { Deal } from "@/types/deal";
 
@@ -134,7 +138,15 @@ ${JSON.stringify(deal, null, 2)}
       return buildFallbackOutput(deal);
     }
 
-    return JSON.parse(content) as AIOutput;
+    const parsedContent = JSON.parse(extractJSONObject(content)) as unknown;
+    const validation = validateAIOutput(parsedContent);
+
+    if (!validation.success) {
+      console.warn("AI output validation failed.", validation.errors);
+      return buildFallbackOutput(deal);
+    }
+
+    return validation.data;
   } catch {
     return buildFallbackOutput(deal);
   }

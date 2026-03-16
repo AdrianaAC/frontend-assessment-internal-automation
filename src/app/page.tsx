@@ -3,52 +3,7 @@
 import { useState } from "react";
 import DealInputForm from "@/components/workflow/DealInputForm";
 import WorkflowResult from "@/components/workflow/WorkflowResult";
-import type { Deal } from "@/types/deal";
-
-type WorkflowResponse = {
-  deal: Deal;
-  enrichment: {
-    projectClassification: {
-      projectType: string;
-      complexity: "low" | "medium" | "high";
-      riskLevel: "low" | "medium" | "high";
-      recommendedTemplate: string;
-    };
-    kickoffEmail: {
-      subject: string;
-      body: string;
-    };
-    teamsIntroMessage: string;
-    clickupTasks: Array<{
-      title: string;
-      description: string;
-      owner: string;
-      priority: "low" | "medium" | "high";
-    }>;
-  };
-  systems: {
-    sharepoint: {
-      status: string;
-      action: string;
-      sourceFolder: string;
-      destinationFolder: string;
-      message: string;
-    };
-    clickup: {
-      status: string;
-      projectName: string;
-      space: string;
-      folder: string;
-      message: string;
-    };
-    teams: {
-      status: string;
-      teamName: string;
-      channelName: string;
-      message: string;
-    };
-  };
-};
+import type { WorkflowResponse } from "@/types/workflow";
 
 export default function HomePage() {
   const [result, setResult] = useState<WorkflowResponse | null>(null);
