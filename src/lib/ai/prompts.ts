@@ -1,4 +1,4 @@
-import { openai } from "./openai";
+import { getOpenAIClient } from "./openai";
 import type { AIOutput } from "@/types/ai-output";
 import type { Deal } from "@/types/deal";
 
@@ -111,6 +111,7 @@ ${JSON.stringify(deal, null, 2)}
 `;
 
   try {
+    const openai = getOpenAIClient();
     const response = await openai.chat.completions.create({
       model: process.env.OPENAI_MODEL,
       messages: [

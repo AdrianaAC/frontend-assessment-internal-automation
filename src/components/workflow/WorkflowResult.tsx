@@ -1,7 +1,7 @@
-"use client";
-
-import { useState } from "react";
 import type { Deal } from "@/types/deal";
+import ResultCard from "@/components/workflow/ResultCard";
+import StatusBadge from "@/components/workflow/StatusBadge";
+import WorkflowTimeline from "@/components/workflow/WorkflowTimeline";
 
 type WorkflowResponse = {
   deal: Deal;
@@ -49,140 +49,189 @@ type WorkflowResponse = {
 };
 
 type Props = {
-  onResult: (result: WorkflowResponse) => void;
+  result: WorkflowResponse;
 };
 
-const initialDeal: Deal = {
-  dealId: "DEAL-001",
-  dealName: "Digital Transformation Kickoff",
-  clientName: "Acme Industries",
-  value: 25000,
-  currency: "EUR",
-  ownerName: "Sales Owner",
-  ownerEmail: "sales@company.com",
-  projectManagerName: "Project Manager",
-  projectManagerEmail: "pm@company.com",
-  sponsorName: "Executive Sponsor",
-  sponsorEmail: "sponsor@company.com",
-  consultantName: "Consultant",
-  consultantEmail: "consultant@company.com",
-  juniorConsultantName: "Junior Consultant",
-  juniorConsultantEmail: "junior@company.com",
-  serviceType: "implementation",
-  startDate: "2026-03-20",
-  notes: "Client wants a fast kickoff and weekly reporting.",
-};
-
-export default function DealInputForm({ onResult }: Props) {
-  const [deal, setDeal] = useState<Deal>(initialDeal);
-  const [loading, setLoading] = useState(false);
-
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    try {
-      setLoading(true);
-
-      const response = await fetch("/api/pipedrive-webhook", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(deal),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to run workflow");
-      }
-
-      const data = (await response.json()) as WorkflowResponse;
-      onResult(data);
-    } catch (error) {
-      console.error(error);
-      alert("Failed to run automation workflow.");
-    } finally {
-      setLoading(false);
-    }
-  }
+export default function WorkflowResult({ result }: Props) {
+  const timelineSteps = [
+    {
+      title: "Deal Received",
+      description: `The won deal "${result.deal.dealName}" for ${result.deal.clientName} entered the automation workflow.`,
+      status: "success" as const,
+    },
+    {
+      title: "AI Enrichment",
+      description: `The AI agent classified the project as ${result.enrichment.projectClassification.projectType}, assessed complexity as ${result.enrichment.projectClassification.complexity}, and generated kickoff communication plus starter tasks.`,
+      status: "success" as const,
+    },
+    {
+      title: "SharePoint Setup",
+      description: result.systems.sharepoint.message,
+      status:
+        result.systems.sharepoint.status === "success" ? "success" : "error",
+    },
+    {
+      title: "ClickUp Project Creation",
+      description: result.systems.clickup.message,
+      status: result.systems.clickup.status === "success" ? "success" : "error",
+    },
+    {
+      title: "Teams Channel Provisioning",
+      description: result.systems.teams.message,
+      status: result.systems.teams.status === "success" ? "success" : "error",
+    },
+  ];
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6"
-    >
-      <h2 className="mb-4 text-xl font-semibold">Deal Input</h2>
+    <section className="space-y-6">
+      <WorkflowTimeline steps={timelineSteps} />
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <input
-          className="rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3"
-          value={deal.dealName}
-          onChange={(e) => setDeal({ ...deal, dealName: e.target.value })}
-          placeholder="Deal name"
-        />
+      <div className="grid gap-6 md:grid-cols-3">
+        <ResultCard title="Project Type">
+          <p className="text-2xl font-semibold text-white">
+            {result.enrichment.projectClassification.projectType}
+          </p>
+          <p className="mt-2 text-sm text-zinc-400">
+            Recommended template:{" "}
+            <span className="text-zinc-200">
+              {result.enrichment.projectClassification.recommendedTemplate}
+            </span>
+          </p>
+        </ResultCard>
 
-        <input
-          className="rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3"
-          value={deal.clientName}
-          onChange={(e) => setDeal({ ...deal, clientName: e.target.value })}
-          placeholder="Client name"
-        />
+        <ResultCard title="Complexity">
+          <p className="text-2xl font-semibold capitalize text-white">
+            {result.enrichment.projectClassification.complexity}
+          </p>
+        </ResultCard>
 
-        <input
-          className="rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3"
-          type="number"
-          value={deal.value}
-          onChange={(e) => setDeal({ ...deal, value: Number(e.target.value) })}
-          placeholder="Deal value"
-        />
-
-        <select
-          className="rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3"
-          value={deal.serviceType}
-          onChange={(e) =>
-            setDeal({
-              ...deal,
-              serviceType: e.target.value as Deal["serviceType"],
-            })
-          }
-        >
-          <option value="implementation">Implementation</option>
-          <option value="support">Support</option>
-          <option value="audit">Audit</option>
-          <option value="training">Training</option>
-          <option value="unknown">Unknown</option>
-        </select>
-
-        <input
-          className="rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3"
-          value={deal.projectManagerName}
-          onChange={(e) =>
-            setDeal({ ...deal, projectManagerName: e.target.value })
-          }
-          placeholder="Project manager"
-        />
-
-        <input
-          className="rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3"
-          value={deal.consultantName}
-          onChange={(e) => setDeal({ ...deal, consultantName: e.target.value })}
-          placeholder="Consultant"
-        />
+        <ResultCard title="Risk Level">
+          <p className="text-2xl font-semibold capitalize text-white">
+            {result.enrichment.projectClassification.riskLevel}
+          </p>
+        </ResultCard>
       </div>
 
-      <textarea
-        className="mt-4 min-h-32 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3"
-        value={deal.notes ?? ""}
-        onChange={(e) => setDeal({ ...deal, notes: e.target.value })}
-        placeholder="Additional notes"
-      />
+      <div className="grid gap-6 md:grid-cols-3">
+        <ResultCard title="SharePoint">
+          <div className="mb-4">
+            <StatusBadge status={result.systems.sharepoint.status} />
+          </div>
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="mt-4 rounded-lg bg-white px-5 py-3 font-medium text-black disabled:opacity-50"
-      >
-        {loading ? "Running..." : "Run automation"}
-      </button>
-    </form>
+          <div className="space-y-2 text-sm text-zinc-300">
+            <p>
+              <span className="text-zinc-500">Action:</span>{" "}
+              {result.systems.sharepoint.action}
+            </p>
+            <p>
+              <span className="text-zinc-500">From:</span>{" "}
+              {result.systems.sharepoint.sourceFolder}
+            </p>
+            <p>
+              <span className="text-zinc-500">To:</span>{" "}
+              {result.systems.sharepoint.destinationFolder}
+            </p>
+            <p className="pt-2 text-zinc-400">
+              {result.systems.sharepoint.message}
+            </p>
+          </div>
+        </ResultCard>
+
+        <ResultCard title="ClickUp">
+          <div className="mb-4">
+            <StatusBadge status={result.systems.clickup.status} />
+          </div>
+
+          <div className="space-y-2 text-sm text-zinc-300">
+            <p>
+              <span className="text-zinc-500">Project:</span>{" "}
+              {result.systems.clickup.projectName}
+            </p>
+            <p>
+              <span className="text-zinc-500">Space:</span>{" "}
+              {result.systems.clickup.space}
+            </p>
+            <p>
+              <span className="text-zinc-500">Folder:</span>{" "}
+              {result.systems.clickup.folder}
+            </p>
+            <p className="pt-2 text-zinc-400">
+              {result.systems.clickup.message}
+            </p>
+          </div>
+        </ResultCard>
+
+        <ResultCard title="Teams">
+          <div className="mb-4">
+            <StatusBadge status={result.systems.teams.status} />
+          </div>
+
+          <div className="space-y-2 text-sm text-zinc-300">
+            <p>
+              <span className="text-zinc-500">Team:</span>{" "}
+              {result.systems.teams.teamName}
+            </p>
+            <p>
+              <span className="text-zinc-500">Channel:</span>{" "}
+              {result.systems.teams.channelName}
+            </p>
+            <p className="pt-2 text-zinc-400">{result.systems.teams.message}</p>
+          </div>
+        </ResultCard>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <ResultCard title="Kickoff Email">
+          <div className="space-y-3">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-zinc-500">
+                Subject
+              </p>
+              <p className="mt-1 text-sm text-zinc-200">
+                {result.enrichment.kickoffEmail.subject}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs uppercase tracking-wide text-zinc-500">
+                Body
+              </p>
+              <pre className="mt-1 whitespace-pre-wrap text-sm text-zinc-300">
+                {result.enrichment.kickoffEmail.body}
+              </pre>
+            </div>
+          </div>
+        </ResultCard>
+
+        <ResultCard title="Teams Intro Message">
+          <pre className="whitespace-pre-wrap text-sm text-zinc-300">
+            {result.enrichment.teamsIntroMessage}
+          </pre>
+        </ResultCard>
+      </div>
+
+      <ResultCard title="Suggested ClickUp Tasks">
+        <div className="space-y-4">
+          {result.enrichment.clickupTasks.map((task, index) => (
+            <div
+              key={`${task.title}-${index}`}
+              className="rounded-xl border border-zinc-800 bg-zinc-950 p-4"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="font-medium text-white">{task.title}</p>
+                <span className="rounded-full border border-zinc-700 px-2.5 py-1 text-xs capitalize text-zinc-300">
+                  {task.priority}
+                </span>
+              </div>
+
+              <p className="mt-2 text-sm text-zinc-400">{task.description}</p>
+              <p className="mt-3 text-xs text-zinc-500">
+                Owner: <span className="text-zinc-300">{task.owner}</span>
+              </p>
+            </div>
+          ))}
+        </div>
+      </ResultCard>
+    </section>
   );
 }
