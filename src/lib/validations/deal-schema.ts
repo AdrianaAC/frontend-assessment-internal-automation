@@ -50,6 +50,8 @@ export const dealSchema = z.object({
     .regex(/^[A-Z]{3}$/, "Currency must be a 3-letter code."),
   ownerName: requiredTrimmedString("Sales owner"),
   ownerEmail: requiredEmail("Sales owner email"),
+  financeName: requiredTrimmedString("Finance contact"),
+  financeEmail: requiredEmail("Finance contact email"),
   projectManagerName: requiredTrimmedString("Project manager"),
   projectManagerEmail: requiredEmail("Project manager email"),
   sponsorName: requiredTrimmedString("Sponsor"),

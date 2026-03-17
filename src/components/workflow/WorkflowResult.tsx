@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import ResultCard from "@/components/workflow/ResultCard";
 import StatusBadge from "@/components/workflow/StatusBadge";
 import WorkflowTimeline from "@/components/workflow/WorkflowTimeline";
@@ -5,9 +8,65 @@ import type { WorkflowResponse } from "@/types/workflow";
 
 type Props = {
   result: WorkflowResponse;
+  onApprove?: (approval: { approvedBy: string; notes?: string }) => Promise<void>;
+  approving?: boolean;
+  approvalError?: string | null;
 };
 
-export default function WorkflowResult({ result }: Props) {
+export default function WorkflowResult({
+  result,
+  onApprove,
+  approving = false,
+  approvalError = null,
+}: Props) {
+  const [approvedBy, setApprovedBy] = useState("");
+  const [approvalNotes, setApprovalNotes] = useState("");
+  const [localApprovalError, setLocalApprovalError] = useState<string | null>(null);
+
+  async function handleApprovalSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!onApprove) {
+      return;
+    }
+
+    if (approvedBy.trim().length === 0) {
+      setLocalApprovalError("Approver name is required.");
+      return;
+    }
+
+    setLocalApprovalError(null);
+    await onApprove({
+      approvedBy: approvedBy.trim(),
+      notes: approvalNotes.trim() || undefined,
+    });
+  }
+
+  function renderIntegrationMeta(integration: {
+    mode: string;
+    provider: string;
+    liveEquivalent: string;
+    note: string;
+  }) {
+    return (
+      <div className="rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-3 text-xs text-zinc-400">
+        <p>
+          <span className="text-zinc-500">Integration mode:</span>{" "}
+          <span className="text-zinc-200">{integration.mode}</span>
+        </p>
+        <p className="mt-1">
+          <span className="text-zinc-500">Provider boundary:</span>{" "}
+          <span className="text-zinc-200">{integration.provider}</span>
+        </p>
+        <p className="mt-1">
+          <span className="text-zinc-500">Live target:</span>{" "}
+          <span className="text-zinc-200">{integration.liveEquivalent}</span>
+        </p>
+        <p className="mt-2">{integration.note}</p>
+      </div>
+    );
+  }
+
   return (
     <section className="space-y-6">
       <ResultCard title="Workflow Execution">
@@ -32,6 +91,97 @@ export default function WorkflowResult({ result }: Props) {
           </div>
         </div>
       </ResultCard>
+
+      {result.approval.status === "pending" ? (
+        <ResultCard title="Human Approval">
+          <div className="space-y-4">
+            <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4 text-sm text-sky-100">
+              <p className="font-medium">Workflow paused before provisioning.</p>
+              <p className="mt-2 text-sky-200">{result.approval.reason}.</p>
+            </div>
+
+            <form onSubmit={handleApprovalSubmit} className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label
+                    className="mb-2 block text-sm text-zinc-400"
+                    htmlFor="approvedBy"
+                  >
+                    Approved by
+                  </label>
+                  <input
+                    id="approvedBy"
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-zinc-100 outline-none transition focus:border-zinc-500"
+                    value={approvedBy}
+                    onChange={(event) => setApprovedBy(event.target.value)}
+                    placeholder="Operations lead"
+                    disabled={approving}
+                  />
+                </div>
+
+                <div>
+                  <label
+                    className="mb-2 block text-sm text-zinc-400"
+                    htmlFor="approvalNotes"
+                  >
+                    Approval notes
+                  </label>
+                  <input
+                    id="approvalNotes"
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-zinc-100 outline-none transition focus:border-zinc-500"
+                    value={approvalNotes}
+                    onChange={(event) => setApprovalNotes(event.target.value)}
+                    placeholder="Proceed with planned provisioning"
+                    disabled={approving}
+                  />
+                </div>
+              </div>
+
+              {localApprovalError || approvalError ? (
+                <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
+                  {localApprovalError ?? approvalError}
+                </div>
+              ) : null}
+
+              <button
+                type="submit"
+                disabled={approving}
+                className="rounded-lg bg-white px-5 py-3 font-medium text-black disabled:opacity-50"
+              >
+                {approving ? "Resuming..." : "Approve and continue"}
+              </button>
+            </form>
+          </div>
+        </ResultCard>
+      ) : null}
+
+      {result.approval.status === "approved" ? (
+        <ResultCard title="Human Approval">
+          <div className="space-y-2 text-sm text-zinc-300">
+            <div className="mb-4">
+              <StatusBadge status="success" />
+            </div>
+            <p>
+              <span className="text-zinc-500">Approved by:</span>{" "}
+              {result.approval.approvedBy}
+            </p>
+            <p>
+              <span className="text-zinc-500">Approved at:</span>{" "}
+              {new Date(result.approval.approvedAt).toLocaleString()}
+            </p>
+            <p>
+              <span className="text-zinc-500">Reason:</span>{" "}
+              {result.approval.reason}
+            </p>
+            {result.approval.notes ? (
+              <p>
+                <span className="text-zinc-500">Notes:</span>{" "}
+                {result.approval.notes}
+              </p>
+            ) : null}
+          </div>
+        </ResultCard>
+      ) : null}
 
       <WorkflowTimeline steps={result.execution.steps} />
 
@@ -68,6 +218,7 @@ export default function WorkflowResult({ result }: Props) {
           </div>
 
           <div className="space-y-2 text-sm text-zinc-300">
+            {renderIntegrationMeta(result.systems.email.integration)}
             <p>
               <span className="text-zinc-500">Provider:</span>{" "}
               {result.systems.email.provider}
@@ -112,6 +263,7 @@ export default function WorkflowResult({ result }: Props) {
           </div>
 
           <div className="space-y-2 text-sm text-zinc-300">
+            {renderIntegrationMeta(result.systems.sharepoint.integration)}
             <p>
               <span className="text-zinc-500">Action:</span>{" "}
               {result.systems.sharepoint.action}
@@ -136,6 +288,7 @@ export default function WorkflowResult({ result }: Props) {
           </div>
 
           <div className="space-y-2 text-sm text-zinc-300">
+            {renderIntegrationMeta(result.systems.clickup.integration)}
             <p>
               <span className="text-zinc-500">Project:</span>{" "}
               {result.systems.clickup.projectName}
@@ -229,6 +382,7 @@ export default function WorkflowResult({ result }: Props) {
           </div>
 
           <div className="space-y-2 text-sm text-zinc-300">
+            {renderIntegrationMeta(result.systems.teams.integration)}
             <p>
               <span className="text-zinc-500">Team:</span>{" "}
               {result.systems.teams.teamName}

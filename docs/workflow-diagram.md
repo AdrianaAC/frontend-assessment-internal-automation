@@ -5,23 +5,29 @@ flowchart TD
     A[Pipedrive Deal Won Event] --> B[Validate Deal Payload]
     B --> C[AI Enrichment]
     C --> D[Validate AI Output]
-    D --> E[Prepare Outlook Notification]
-    D --> F[Move SharePoint Folder]
-    D --> G[Create ClickUp Project]
-    D --> H[Provision Teams Workspace]
+    C -. API unavailable or invalid output .-> J[Fallback Enrichment]
+    J --> D
+    D --> K{Approval Required?}
+    K -- Yes --> L[Pause For Human Approval]
+    L --> M[Resume Workflow]
+    K -- No --> E[Prepare Outlook Notification]
+    M --> E
+    K -- No --> F[Move SharePoint Folder]
+    M --> F
+    K -- No --> G[Create ClickUp Project]
+    M --> G
+    K -- No --> H[Provision Teams Workspace]
+    M --> H
     E --> I[Workflow Result UI]
     F --> I
     G --> I
-    H --> I
-
-    C -. API unavailable or invalid output .-> J[Fallback Enrichment]
-    J --> E
-    J --> G
-    J --> H
+    H --> I[Workflow Result UI]
 ```
 
 ## Notes
 
 - Validation happens before the workflow starts and again after the AI step.
-- The prototype auto-proceeds after validation.
-- In production, high-risk deals should pause for approval before email send and downstream provisioning.
+- The implemented prototype pauses before downstream provisioning when AI falls back or the project is classified as high risk.
+- The workflow resumes through a dedicated backend endpoint after a human approval decision is submitted from the UI.
+- Outlook, SharePoint, ClickUp, and Teams provisioning run in parallel after approval or on auto-proceeding runs.
+- Low and medium risk runs continue automatically without the approval pause.

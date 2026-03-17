@@ -22,6 +22,8 @@ const initialDeal: Deal = {
   currency: "EUR",
   ownerName: "Sales Owner",
   ownerEmail: "sales@company.com",
+  financeName: "Finance Partner",
+  financeEmail: "finance@company.com",
   projectManagerName: "Project Manager",
   projectManagerEmail: "pm@company.com",
   sponsorName: "Executive Sponsor",
@@ -58,6 +60,8 @@ function buildSimulatedWebhookPayload(deal: Deal): PipedriveDealWebhookPayload {
       stageName: "Won",
       ownerName: deal.ownerName,
       ownerEmail: deal.ownerEmail,
+      financeName: deal.financeName,
+      financeEmail: deal.financeEmail,
       projectManagerName: deal.projectManagerName,
       projectManagerEmail: deal.projectManagerEmail,
       sponsorName: deal.sponsorName,
@@ -371,6 +375,45 @@ export default function DealInputForm({ onResult }: Props) {
                 aria-invalid={Boolean(fieldErrors.ownerEmail)}
               />
               {renderFieldError("ownerEmail")}
+            </div>
+
+            <div>
+              <label
+                className="mb-2 block text-sm text-zinc-400"
+                htmlFor="financeName"
+              >
+                Finance contact
+              </label>
+              <input
+                id="financeName"
+                className={getFieldClassName("financeName")}
+                value={deal.financeName}
+                onChange={(e) => updateDeal("financeName", e.target.value)}
+                placeholder="Finance contact"
+                required
+                aria-invalid={Boolean(fieldErrors.financeName)}
+              />
+              {renderFieldError("financeName")}
+            </div>
+
+            <div>
+              <label
+                className="mb-2 block text-sm text-zinc-400"
+                htmlFor="financeEmail"
+              >
+                Finance contact email
+              </label>
+              <input
+                id="financeEmail"
+                className={getFieldClassName("financeEmail")}
+                type="email"
+                value={deal.financeEmail}
+                onChange={(e) => updateDeal("financeEmail", e.target.value)}
+                placeholder="finance@company.com"
+                required
+                aria-invalid={Boolean(fieldErrors.financeEmail)}
+              />
+              {renderFieldError("financeEmail")}
             </div>
 
             <div>

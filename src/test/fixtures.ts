@@ -11,6 +11,8 @@ export function createDealFixture(overrides: Partial<Deal> = {}): Deal {
     currency: "EUR",
     ownerName: "Sales Owner",
     ownerEmail: "sales@company.com",
+    financeName: "Finance Partner",
+    financeEmail: "finance@company.com",
     projectManagerName: "Project Manager",
     projectManagerEmail: "pm@company.com",
     sponsorName: "Executive Sponsor",
@@ -60,6 +62,13 @@ export function createWorkflowResponseFixture(
   return {
     deal,
     enrichment,
+    enrichmentContext: {
+      mode: "live",
+      attempts: 1,
+    },
+    approval: {
+      status: "not_required",
+    },
     execution: {
       status: "success",
       totalDurationMs: 25,
@@ -80,12 +89,25 @@ export function createWorkflowResponseFixture(
     systems: {
       email: {
         status: "success",
+        integration: {
+          kind: "email",
+          mode: "mock",
+          implementation: "simulated",
+          provider: "Office365 / Outlook",
+          liveEquivalent: "Microsoft Graph sendMail",
+          note: "Simulated payload only. No live email was sent.",
+        },
         provider: "Office365 / Outlook",
         recipients: [
           {
             name: deal.ownerName,
             address: deal.ownerEmail,
             role: "Sales Owner",
+          },
+          {
+            name: deal.financeName,
+            address: deal.financeEmail,
+            role: "Finance",
           },
         ],
         subject: enrichment.kickoffEmail.subject,
@@ -107,6 +129,14 @@ export function createWorkflowResponseFixture(
       },
       sharepoint: {
         status: "success",
+        integration: {
+          kind: "sharepoint",
+          mode: "mock",
+          implementation: "simulated",
+          provider: "SharePoint Online",
+          liveEquivalent: "Microsoft Graph / SharePoint REST",
+          note: "Simulated folder move only. No live document operation was executed.",
+        },
         action: "move",
         sourceFolder: "/Propostas em Curso/Acme Industries",
         destinationFolder: "/Projetos Ativos/Acme Industries",
@@ -114,6 +144,14 @@ export function createWorkflowResponseFixture(
       },
       clickup: {
         status: "success",
+        integration: {
+          kind: "clickup",
+          mode: "mock",
+          implementation: "simulated",
+          provider: "ClickUp",
+          liveEquivalent: "ClickUp API",
+          note: "Simulated project provisioning only. No live ClickUp resources were created.",
+        },
         projectName: "Acme Industries - Digital Transformation Kickoff",
         space: "Operations",
         folder: "Active Projects",
@@ -137,6 +175,14 @@ export function createWorkflowResponseFixture(
       },
       teams: {
         status: "success",
+        integration: {
+          kind: "teams",
+          mode: "mock",
+          implementation: "simulated",
+          provider: "Microsoft Teams",
+          liveEquivalent: "Microsoft Graph groups / teams / channels",
+          note: "Simulated team provisioning only. No live Teams workspace was created.",
+        },
         teamName: "Acme Industries Delivery Team",
         channelName: "acme-industries-kickoff",
         visibility: "private",

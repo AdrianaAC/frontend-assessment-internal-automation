@@ -30,6 +30,8 @@ function createWebhookPayload(): PipedriveDealWebhookPayload {
       stageName: "Won",
       ownerName: deal.ownerName,
       ownerEmail: deal.ownerEmail,
+      financeName: deal.financeName,
+      financeEmail: deal.financeEmail,
       projectManagerName: deal.projectManagerName,
       projectManagerEmail: deal.projectManagerEmail,
       sponsorName: deal.sponsorName,

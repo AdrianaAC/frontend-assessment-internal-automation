@@ -132,6 +132,8 @@ export function validateAndMapPipedriveWebhook(
     currency: currentSource.currency,
     ownerName: currentSource.ownerName,
     ownerEmail: currentSource.ownerEmail,
+    financeName: currentSource.financeName,
+    financeEmail: currentSource.financeEmail,
     projectManagerName: currentSource.projectManagerName,
     projectManagerEmail: currentSource.projectManagerEmail,
     sponsorName: currentSource.sponsorName,

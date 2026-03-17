@@ -19,6 +19,8 @@ export type PipedriveDealWebhookPayload = {
     stageName: string;
     ownerName: string;
     ownerEmail: string;
+    financeName: string;
+    financeEmail: string;
     projectManagerName: string;
     projectManagerEmail: string;
     sponsorName: string;

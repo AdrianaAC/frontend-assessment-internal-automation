@@ -1,24 +1,32 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createAIOutputFixture, createDealFixture } from "@/test/fixtures";
 
-const { runAIEnrichmentMock, mockEmailNotificationMock, mockSharepointMoveMock, mockClickupProjectMock, mockTeamsChannelMock } =
+const { runAIEnrichmentMock, prepareEmailNotificationMock, moveSharepointFolderMock, createClickupProjectMock, provisionTeamsWorkspaceMock } =
   vi.hoisted(() => ({
     runAIEnrichmentMock: vi.fn(),
-    mockEmailNotificationMock: vi.fn(),
-    mockSharepointMoveMock: vi.fn(),
-    mockClickupProjectMock: vi.fn(),
-    mockTeamsChannelMock: vi.fn(),
+    prepareEmailNotificationMock: vi.fn(),
+    moveSharepointFolderMock: vi.fn(),
+    createClickupProjectMock: vi.fn(),
+    provisionTeamsWorkspaceMock: vi.fn(),
   }));
 
 vi.mock("@/lib/ai/prompts", () => ({
   runAIEnrichment: runAIEnrichmentMock,
 }));
 
-vi.mock("@/lib/workflow/mocks", () => ({
-  mockEmailNotification: mockEmailNotificationMock,
-  mockSharepointMove: mockSharepointMoveMock,
-  mockClickupProject: mockClickupProjectMock,
-  mockTeamsChannel: mockTeamsChannelMock,
+vi.mock("@/lib/workflow/integrations", () => ({
+  prepareEmailNotification: prepareEmailNotificationMock,
+  moveSharepointFolder: moveSharepointFolderMock,
+  createClickupProject: createClickupProjectMock,
+  provisionTeamsWorkspace: provisionTeamsWorkspaceMock,
+  getIntegrationMetadata: (kind: string) => ({
+    kind,
+    mode: "mock",
+    implementation: "simulated",
+    provider: kind,
+    liveEquivalent: `${kind}-live`,
+    note: `${kind}-note`,
+  }),
 }));
 
 describe("processDeal", () => {
@@ -35,8 +43,16 @@ describe("processDeal", () => {
       mode: "live",
       attempts: 1,
     });
-    mockEmailNotificationMock.mockResolvedValue({
+    prepareEmailNotificationMock.mockResolvedValue({
       status: "success",
+      integration: {
+        kind: "email",
+        mode: "mock",
+        implementation: "simulated",
+        provider: "Office365 / Outlook",
+        liveEquivalent: "Microsoft Graph sendMail",
+        note: "Simulated payload only. No live email was sent.",
+      },
       provider: "Office365 / Outlook",
       recipients: [],
       subject: enrichment.kickoffEmail.subject,
@@ -56,9 +72,17 @@ describe("processDeal", () => {
       },
       message: "Email prepared.",
     });
-    mockSharepointMoveMock.mockRejectedValue(new Error("SharePoint unavailable"));
-    mockClickupProjectMock.mockResolvedValue({
+    moveSharepointFolderMock.mockRejectedValue(new Error("SharePoint unavailable"));
+    createClickupProjectMock.mockResolvedValue({
       status: "success",
+      integration: {
+        kind: "clickup",
+        mode: "mock",
+        implementation: "simulated",
+        provider: "ClickUp",
+        liveEquivalent: "ClickUp API",
+        note: "Simulated project provisioning only. No live ClickUp resources were created.",
+      },
       projectName: "Acme Industries - Digital Transformation Kickoff",
       space: "Operations",
       folder: "Active Projects",
@@ -80,8 +104,16 @@ describe("processDeal", () => {
       },
       message: "ClickUp created.",
     });
-    mockTeamsChannelMock.mockResolvedValue({
+    provisionTeamsWorkspaceMock.mockResolvedValue({
       status: "success",
+      integration: {
+        kind: "teams",
+        mode: "mock",
+        implementation: "simulated",
+        provider: "Microsoft Teams",
+        liveEquivalent: "Microsoft Graph groups / teams / channels",
+        note: "Simulated team provisioning only. No live Teams workspace was created.",
+      },
       teamName: "Acme Industries Delivery Team",
       channelName: "acme-industries-kickoff",
       visibility: "private",
@@ -125,8 +157,16 @@ describe("processDeal", () => {
       attempts: 2,
       failureReason: "json_parse_failed",
     });
-    mockEmailNotificationMock.mockResolvedValue({
+    prepareEmailNotificationMock.mockResolvedValue({
       status: "success",
+      integration: {
+        kind: "email",
+        mode: "mock",
+        implementation: "simulated",
+        provider: "Office365 / Outlook",
+        liveEquivalent: "Microsoft Graph sendMail",
+        note: "Simulated payload only. No live email was sent.",
+      },
       provider: "Office365 / Outlook",
       recipients: [],
       subject: "subject",
@@ -146,15 +186,31 @@ describe("processDeal", () => {
       },
       message: "Email prepared.",
     });
-    mockSharepointMoveMock.mockResolvedValue({
+    moveSharepointFolderMock.mockResolvedValue({
       status: "success",
+      integration: {
+        kind: "sharepoint",
+        mode: "mock",
+        implementation: "simulated",
+        provider: "SharePoint Online",
+        liveEquivalent: "Microsoft Graph / SharePoint REST",
+        note: "Simulated folder move only. No live document operation was executed.",
+      },
       action: "move",
       sourceFolder: "from",
       destinationFolder: "to",
       message: "SharePoint moved.",
     });
-    mockClickupProjectMock.mockResolvedValue({
+    createClickupProjectMock.mockResolvedValue({
       status: "success",
+      integration: {
+        kind: "clickup",
+        mode: "mock",
+        implementation: "simulated",
+        provider: "ClickUp",
+        liveEquivalent: "ClickUp API",
+        note: "Simulated project provisioning only. No live ClickUp resources were created.",
+      },
       projectName: "name",
       space: "space",
       folder: "folder",
@@ -176,8 +232,16 @@ describe("processDeal", () => {
       },
       message: "ClickUp created.",
     });
-    mockTeamsChannelMock.mockResolvedValue({
+    provisionTeamsWorkspaceMock.mockResolvedValue({
       status: "success",
+      integration: {
+        kind: "teams",
+        mode: "mock",
+        implementation: "simulated",
+        provider: "Microsoft Teams",
+        liveEquivalent: "Microsoft Graph groups / teams / channels",
+        note: "Simulated team provisioning only. No live Teams workspace was created.",
+      },
       teamName: "team",
       channelName: "channel",
       visibility: "private",
@@ -198,7 +262,11 @@ describe("processDeal", () => {
     const { processDeal } = await import("@/lib/workflow/process-deal");
     const result = await processDeal(createDealFixture());
 
-    expect(result.execution.status).toBe("warning");
+    expect(result.execution.status).toBe("pending");
+    expect(result.approval).toMatchObject({
+      status: "pending",
+      stage: "pre-provisioning",
+    });
     expect(
       result.execution.steps.find((step) => step.id === "ai-enrichment")
     ).toMatchObject({
@@ -207,5 +275,159 @@ describe("processDeal", () => {
       attempts: 2,
       errorMessage: "json_parse_failed",
     });
+    expect(
+      result.execution.steps.find((step) => step.id === "human-approval")
+    ).toMatchObject({
+      status: "pending",
+      approvalRequired: true,
+    });
+    expect(prepareEmailNotificationMock).not.toHaveBeenCalled();
+  });
+
+  it("resumes a paused workflow after approval and keeps the original enrichment context", async () => {
+    const deal = createDealFixture();
+    const enrichment = createAIOutputFixture({
+      projectClassification: {
+        projectType: "implementation",
+        complexity: "high",
+        riskLevel: "high",
+        recommendedTemplate: "High Risk Template",
+      },
+    });
+
+    runAIEnrichmentMock.mockResolvedValue({
+      output: enrichment,
+      mode: "live",
+      attempts: 1,
+    });
+    prepareEmailNotificationMock.mockResolvedValue({
+      status: "success",
+      integration: {
+        kind: "email",
+        mode: "mock",
+        implementation: "simulated",
+        provider: "Office365 / Outlook",
+        liveEquivalent: "Microsoft Graph sendMail",
+        note: "Simulated payload only. No live email was sent.",
+      },
+      provider: "Office365 / Outlook",
+      recipients: [],
+      subject: enrichment.kickoffEmail.subject,
+      bodyPreview: enrichment.kickoffEmail.body,
+      payload: {
+        message: {
+          subject: enrichment.kickoffEmail.subject,
+          body: {
+            contentType: "Text",
+            content: enrichment.kickoffEmail.body,
+          },
+          toRecipients: [],
+          ccRecipients: [],
+          importance: "normal",
+        },
+        saveToSentItems: true,
+      },
+      message: "Email prepared.",
+    });
+    moveSharepointFolderMock.mockResolvedValue({
+      status: "success",
+      integration: {
+        kind: "sharepoint",
+        mode: "mock",
+        implementation: "simulated",
+        provider: "SharePoint Online",
+        liveEquivalent: "Microsoft Graph / SharePoint REST",
+        note: "Simulated folder move only. No live document operation was executed.",
+      },
+      action: "move",
+      sourceFolder: "from",
+      destinationFolder: "to",
+      message: "SharePoint moved.",
+    });
+    createClickupProjectMock.mockResolvedValue({
+      status: "success",
+      integration: {
+        kind: "clickup",
+        mode: "mock",
+        implementation: "simulated",
+        provider: "ClickUp",
+        liveEquivalent: "ClickUp API",
+        note: "Simulated project provisioning only. No live ClickUp resources were created.",
+      },
+      projectName: "name",
+      space: "space",
+      folder: "folder",
+      owner: "owner",
+      startDate: "2026-03-20",
+      value: "25000 EUR",
+      tags: [],
+      customFields: [],
+      tasks: [],
+      payload: {
+        name: "name",
+        space: "space",
+        folder: "folder",
+        owner: "owner",
+        startDate: "2026-03-20",
+        tags: [],
+        customFields: [],
+        tasks: [],
+      },
+      message: "ClickUp created.",
+    });
+    provisionTeamsWorkspaceMock.mockResolvedValue({
+      status: "success",
+      integration: {
+        kind: "teams",
+        mode: "mock",
+        implementation: "simulated",
+        provider: "Microsoft Teams",
+        liveEquivalent: "Microsoft Graph groups / teams / channels",
+        note: "Simulated team provisioning only. No live Teams workspace was created.",
+      },
+      teamName: "team",
+      channelName: "channel",
+      visibility: "private",
+      members: [],
+      owners: [],
+      welcomeMessage: "hello",
+      payload: {
+        displayName: "team",
+        description: "desc",
+        visibility: "private",
+        owners: [],
+        members: [],
+        channels: [],
+      },
+      message: "Teams provisioned.",
+    });
+
+    const { processDeal } = await import("@/lib/workflow/process-deal");
+    const result = await processDeal(deal, {
+      enrichmentOverride: enrichment,
+      enrichmentContext: {
+        mode: "live",
+        attempts: 1,
+      },
+      approvalDecision: {
+        approvedBy: "Operations Lead",
+        notes: "Reviewed.",
+      },
+    });
+
+    expect(result.execution.status).toBe("success");
+    expect(result.approval).toMatchObject({
+      status: "approved",
+      approvedBy: "Operations Lead",
+      notes: "Reviewed.",
+    });
+    expect(
+      result.execution.steps.find((step) => step.id === "human-approval")
+    ).toMatchObject({
+      status: "success",
+      approvalRequired: false,
+    });
+    expect(prepareEmailNotificationMock).toHaveBeenCalledTimes(1);
+    expect(runAIEnrichmentMock).not.toHaveBeenCalled();
   });
 });

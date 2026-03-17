@@ -6,7 +6,18 @@ import type {
   EmailRecipient,
 } from "@/types/workflow";
 
-function buildTeamRecipients(deal: Deal): EmailRecipient[] {
+function dedupeRecipients(recipients: EmailRecipient[]) {
+  return recipients.filter((recipient, index, allRecipients) => {
+    return (
+      recipient.address.trim().length > 0 &&
+      allRecipients.findIndex(
+        (candidate) => candidate.address === recipient.address
+      ) === index
+    );
+  });
+}
+
+function buildDeliveryTeamRecipients(deal: Deal): EmailRecipient[] {
   return [
     {
       name: deal.ownerName,
@@ -33,14 +44,42 @@ function buildTeamRecipients(deal: Deal): EmailRecipient[] {
       address: deal.juniorConsultantEmail,
       role: "Junior Consultant",
     },
-  ].filter((recipient, index, allRecipients) => {
-    return (
-      recipient.address.trim().length > 0 &&
-      allRecipients.findIndex(
-        (candidate) => candidate.address === recipient.address
-      ) === index
-    );
-  });
+  ];
+}
+
+function buildNotificationRecipients(deal: Deal): EmailRecipient[] {
+  return dedupeRecipients([
+    {
+      name: deal.ownerName,
+      address: deal.ownerEmail,
+      role: "Sales Owner",
+    },
+    {
+      name: deal.projectManagerName,
+      address: deal.projectManagerEmail,
+      role: "Project Manager",
+    },
+    {
+      name: deal.financeName,
+      address: deal.financeEmail,
+      role: "Finance",
+    },
+    {
+      name: deal.sponsorName,
+      address: deal.sponsorEmail,
+      role: "Sponsor",
+    },
+    {
+      name: deal.consultantName,
+      address: deal.consultantEmail,
+      role: "Consultant",
+    },
+    {
+      name: deal.juniorConsultantName,
+      address: deal.juniorConsultantEmail,
+      role: "Junior Consultant",
+    },
+  ]);
 }
 
 function addDays(startDate: string | undefined, daysToAdd: number) {
@@ -62,7 +101,7 @@ export async function mockEmailNotification(
   deal: Deal,
   enrichment: Pick<AIOutput, "kickoffEmail">
 ) {
-  const recipients = buildTeamRecipients(deal);
+  const recipients = buildNotificationRecipients(deal);
 
   const [primaryRecipient, ...ccRecipients] = recipients;
   const payload = {
@@ -191,7 +230,7 @@ export async function mockTeamsChannel(
   deal: Deal,
   enrichment: Pick<AIOutput, "teamsIntroMessage">
 ) {
-  const members = buildTeamRecipients(deal);
+  const members = dedupeRecipients(buildDeliveryTeamRecipients(deal));
   const owners = members.filter(
     (member) =>
       member.role === "Project Manager" || member.role === "Sales Owner"

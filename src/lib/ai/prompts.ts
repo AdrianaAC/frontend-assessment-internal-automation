@@ -7,7 +7,7 @@ import {
 import type { AIOutput } from "@/types/ai-output";
 import type { Deal } from "@/types/deal";
 
-const AI_PROMPT_VERSION = "workflow-enrichment-v2";
+const AI_PROMPT_VERSION = "workflow-enrichment-v4";
 const AI_MAX_ATTEMPTS = 2;
 const AI_SYSTEM_PROMPT = [
   "You are an enterprise automation AI.",
@@ -37,6 +37,8 @@ Produce structured output for:
 - starter ClickUp tasks
 
 The output will be consumed by internal automation systems, so it must be concise, practical, and production-appropriate.
+The kickoff email audience includes sales, project manager, finance, sponsor, and the delivery team.
+The Teams intro message must reference only the actual Teams workspace members: sales owner, sponsor, project manager, consultant, and junior consultant.
 
 Deal:
 ${JSON.stringify(deal, null, 2)}
@@ -70,7 +72,9 @@ A new deal has been marked as won.
 Client: ${deal.clientName}
 Project: ${deal.dealName}
 Value: ${deal.value} ${deal.currency}
+Sales Owner: ${deal.ownerName}
 Project Manager: ${deal.projectManagerName}
+Finance Contact: ${deal.financeName}
 Start Date: ${deal.startDate ?? "TBD"}
 
 Next steps:
@@ -88,6 +92,7 @@ Automation Bot`,
     teamsIntroMessage: `Welcome everyone - this project for ${deal.clientName} is now starting.
 
 Team:
+- Sales Owner: ${deal.ownerName}
 - Sponsor: ${deal.sponsorName}
 - Project Manager: ${deal.projectManagerName}
 - Consultant: ${deal.consultantName}
@@ -112,7 +117,7 @@ Let's use this channel for kickoff coordination and early project alignment.`,
       },
       {
         title: "Confirm project staffing",
-        description: "Validate sponsor, PM, consultant, and junior consultant allocation.",
+        description: "Validate sponsor, PM, finance, consultant, and junior consultant allocation.",
         owner: deal.ownerName,
         priority: "medium",
       },

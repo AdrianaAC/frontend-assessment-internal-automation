@@ -3,7 +3,50 @@ import type { Deal } from "@/types/deal";
 
 export type WorkflowSystemStatus = "success" | "error" | "warning" | "pending";
 
-export type WorkflowExecutionSummaryStatus = "success" | "warning" | "error";
+export type WorkflowExecutionSummaryStatus =
+  | "success"
+  | "warning"
+  | "error"
+  | "pending";
+
+export type WorkflowAIExecutionContext = {
+  mode: "live" | "fallback";
+  attempts: number;
+  failureReason?: string;
+};
+
+export type WorkflowIntegrationKind =
+  | "email"
+  | "sharepoint"
+  | "clickup"
+  | "teams";
+
+export type WorkflowIntegrationMetadata = {
+  kind: WorkflowIntegrationKind;
+  mode: "mock";
+  implementation: "simulated";
+  provider: string;
+  liveEquivalent: string;
+  note: string;
+};
+
+export type WorkflowApprovalState =
+  | {
+      status: "not_required";
+    }
+  | {
+      status: "pending";
+      stage: "pre-provisioning";
+      reason: string;
+    }
+  | {
+      status: "approved";
+      stage: "pre-provisioning";
+      reason: string;
+      approvedBy: string;
+      approvedAt: string;
+      notes?: string;
+    };
 
 export type WorkflowExecutionStep = {
   id: string;
@@ -47,6 +90,7 @@ export type OutlookMessagePayload = {
 
 export type EmailNotificationResult = {
   status: WorkflowSystemStatus;
+  integration: WorkflowIntegrationMetadata;
   provider: string;
   recipients: EmailRecipient[];
   subject: string;
@@ -60,6 +104,7 @@ export type EmailNotificationResult = {
 
 export type SharepointResult = {
   status: WorkflowSystemStatus;
+  integration: WorkflowIntegrationMetadata;
   action: string;
   sourceFolder: string;
   destinationFolder: string;
@@ -83,6 +128,7 @@ export type ClickupTaskPayload = {
 
 export type ClickupResult = {
   status: WorkflowSystemStatus;
+  integration: WorkflowIntegrationMetadata;
   projectName: string;
   space: string;
   folder: string;
@@ -107,6 +153,7 @@ export type ClickupResult = {
 
 export type TeamsResult = {
   status: WorkflowSystemStatus;
+  integration: WorkflowIntegrationMetadata;
   teamName: string;
   channelName: string;
   visibility: "private";
@@ -138,6 +185,8 @@ export type TeamsResult = {
 export type WorkflowResponse = {
   deal: Deal;
   enrichment: AIOutput;
+  enrichmentContext: WorkflowAIExecutionContext;
+  approval: WorkflowApprovalState;
   execution: {
     status: WorkflowExecutionSummaryStatus;
     totalDurationMs: number;
