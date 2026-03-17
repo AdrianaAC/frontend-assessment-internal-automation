@@ -1,4 +1,124 @@
-import type { AIOutput, SuggestedTask } from "@/types/ai-output";
+import { z } from "zod";
+import type { AIOutput } from "@/types/ai-output";
+
+export const suggestedTaskSchema = z.object({
+  title: z.string().trim().min(1, "clickupTasks[].title is required."),
+  description: z
+    .string()
+    .trim()
+    .min(1, "clickupTasks[].description is required."),
+  owner: z.string().trim().min(1, "clickupTasks[].owner is required."),
+  priority: z.enum(["low", "medium", "high"]),
+});
+
+export const aiOutputSchema = z.object({
+  projectClassification: z.object({
+    projectType: z
+      .string()
+      .trim()
+      .min(1, "projectClassification.projectType is required."),
+    complexity: z.enum(["low", "medium", "high"]),
+    riskLevel: z.enum(["low", "medium", "high"]),
+    recommendedTemplate: z
+      .string()
+      .trim()
+      .min(1, "projectClassification.recommendedTemplate is required."),
+  }),
+  kickoffEmail: z.object({
+    subject: z.string().trim().min(1, "kickoffEmail.subject is required."),
+    body: z.string().trim().min(1, "kickoffEmail.body is required."),
+  }),
+  teamsIntroMessage: z
+    .string()
+    .trim()
+    .min(1, "teamsIntroMessage is required."),
+  clickupTasks: z
+    .array(suggestedTaskSchema)
+    .min(1, "clickupTasks must contain at least one task."),
+});
+
+export const aiOutputJsonSchema = {
+  name: "workflow_ai_output",
+  strict: true,
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    required: [
+      "projectClassification",
+      "kickoffEmail",
+      "teamsIntroMessage",
+      "clickupTasks",
+    ],
+    properties: {
+      projectClassification: {
+        type: "object",
+        additionalProperties: false,
+        required: [
+          "projectType",
+          "complexity",
+          "riskLevel",
+          "recommendedTemplate",
+        ],
+        properties: {
+          projectType: {
+            type: "string",
+          },
+          complexity: {
+            type: "string",
+            enum: ["low", "medium", "high"],
+          },
+          riskLevel: {
+            type: "string",
+            enum: ["low", "medium", "high"],
+          },
+          recommendedTemplate: {
+            type: "string",
+          },
+        },
+      },
+      kickoffEmail: {
+        type: "object",
+        additionalProperties: false,
+        required: ["subject", "body"],
+        properties: {
+          subject: {
+            type: "string",
+          },
+          body: {
+            type: "string",
+          },
+        },
+      },
+      teamsIntroMessage: {
+        type: "string",
+      },
+      clickupTasks: {
+        type: "array",
+        minItems: 1,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["title", "description", "owner", "priority"],
+          properties: {
+            title: {
+              type: "string",
+            },
+            description: {
+              type: "string",
+            },
+            owner: {
+              type: "string",
+            },
+            priority: {
+              type: "string",
+              enum: ["low", "medium", "high"],
+            },
+          },
+        },
+      },
+    },
+  },
+} as const;
 
 type AIOutputValidationSuccess = {
   success: true;
@@ -14,180 +134,19 @@ export type AIOutputValidationResult =
   | AIOutputValidationSuccess
   | AIOutputValidationFailure;
 
-const validLevels = new Set<AIOutput["projectClassification"]["complexity"]>([
-  "low",
-  "medium",
-  "high",
-]);
-
-const validPriorities = new Set<SuggestedTask["priority"]>([
-  "low",
-  "medium",
-  "high",
-]);
-
-function readRequiredString(
-  value: unknown,
-  label: string,
-  errors: string[]
-) {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    errors.push(`${label} is required.`);
-    return "";
-  }
-
-  return value.trim();
-}
-
-function readLevel(
-  value: unknown,
-  label: string,
-  errors: string[]
-): "low" | "medium" | "high" {
-  if (typeof value !== "string" || !validLevels.has(value as never)) {
-    errors.push(`${label} must be low, medium, or high.`);
-    return "medium";
-  }
-
-  return value as "low" | "medium" | "high";
-}
-
-function readTask(task: unknown, index: number, errors: string[]): SuggestedTask {
-  const taskLabel = `clickupTasks[${index}]`;
-
-  if (!task || typeof task !== "object" || Array.isArray(task)) {
-    errors.push(`${taskLabel} must be an object.`);
-    return {
-      title: "",
-      description: "",
-      owner: "",
-      priority: "medium",
-    };
-  }
-
-  const source = task as Record<string, unknown>;
-  const priority = source.priority;
-
-  if (typeof priority !== "string" || !validPriorities.has(priority as never)) {
-    errors.push(`${taskLabel}.priority must be low, medium, or high.`);
-  }
-
-  return {
-    title: readRequiredString(source.title, `${taskLabel}.title`, errors),
-    description: readRequiredString(
-      source.description,
-      `${taskLabel}.description`,
-      errors
-    ),
-    owner: readRequiredString(source.owner, `${taskLabel}.owner`, errors),
-    priority:
-      typeof priority === "string" && validPriorities.has(priority as never)
-        ? (priority as SuggestedTask["priority"])
-        : "medium",
-  };
-}
-
 export function validateAIOutput(input: unknown): AIOutputValidationResult {
-  if (!input || typeof input !== "object" || Array.isArray(input)) {
+  const validation = aiOutputSchema.safeParse(input);
+
+  if (!validation.success) {
     return {
       success: false,
-      errors: ["AI output must be an object."],
-    };
-  }
-
-  const source = input as Record<string, unknown>;
-  const errors: string[] = [];
-
-  const projectClassification = source.projectClassification;
-  const kickoffEmail = source.kickoffEmail;
-  const teamsIntroMessage = readRequiredString(
-    source.teamsIntroMessage,
-    "teamsIntroMessage",
-    errors
-  );
-  const clickupTasksSource = source.clickupTasks;
-
-  if (
-    !projectClassification ||
-    typeof projectClassification !== "object" ||
-    Array.isArray(projectClassification)
-  ) {
-    errors.push("projectClassification must be an object.");
-  }
-
-  if (!kickoffEmail || typeof kickoffEmail !== "object" || Array.isArray(kickoffEmail)) {
-    errors.push("kickoffEmail must be an object.");
-  }
-
-  if (!Array.isArray(clickupTasksSource)) {
-    errors.push("clickupTasks must be an array.");
-  }
-
-  const classificationSource =
-    projectClassification && typeof projectClassification === "object"
-      ? (projectClassification as Record<string, unknown>)
-      : {};
-
-  const kickoffEmailSource =
-    kickoffEmail && typeof kickoffEmail === "object"
-      ? (kickoffEmail as Record<string, unknown>)
-      : {};
-
-  const clickupTasks = Array.isArray(clickupTasksSource)
-    ? clickupTasksSource.map((task, index) => readTask(task, index, errors))
-    : [];
-
-  const validatedProjectClassification = {
-    projectType: readRequiredString(
-      classificationSource.projectType,
-      "projectClassification.projectType",
-      errors
-    ),
-    complexity: readLevel(
-      classificationSource.complexity,
-      "projectClassification.complexity",
-      errors
-    ),
-    riskLevel: readLevel(
-      classificationSource.riskLevel,
-      "projectClassification.riskLevel",
-      errors
-    ),
-    recommendedTemplate: readRequiredString(
-      classificationSource.recommendedTemplate,
-      "projectClassification.recommendedTemplate",
-      errors
-    ),
-  };
-
-  const validatedKickoffEmail = {
-    subject: readRequiredString(
-      kickoffEmailSource.subject,
-      "kickoffEmail.subject",
-      errors
-    ),
-    body: readRequiredString(kickoffEmailSource.body, "kickoffEmail.body", errors),
-  };
-
-  if (clickupTasks.length === 0) {
-    errors.push("clickupTasks must contain at least one task.");
-  }
-
-  if (errors.length > 0) {
-    return {
-      success: false,
-      errors,
+      errors: validation.error.issues.map((issue) => issue.message),
     };
   }
 
   return {
     success: true,
-    data: {
-      projectClassification: validatedProjectClassification,
-      kickoffEmail: validatedKickoffEmail,
-      teamsIntroMessage,
-      clickupTasks,
-    },
+    data: validation.data,
   };
 }
 

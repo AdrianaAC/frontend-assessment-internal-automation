@@ -7,6 +7,7 @@ import {
   type DealValidationErrors,
 } from "@/lib/validations/deal-schema";
 import type { Deal } from "@/types/deal";
+import type { PipedriveDealWebhookPayload } from "@/types/pipedrive";
 import type { WorkflowResponse } from "@/types/workflow";
 
 type Props = {
@@ -36,6 +37,45 @@ const initialDeal: Deal = {
 
 const baseFieldClassName =
   "w-full rounded-lg border bg-zinc-950 px-4 py-3 text-zinc-100 outline-none transition focus:border-zinc-500";
+
+function buildSimulatedWebhookPayload(deal: Deal): PipedriveDealWebhookPayload {
+  const occurredAt = new Date().toISOString();
+
+  return {
+    meta: {
+      event: "updated.deal",
+      eventId: `${deal.dealId}:won:${occurredAt}`,
+      occurredAt,
+      source: "demo-ui",
+    },
+    current: {
+      dealId: deal.dealId,
+      title: deal.dealName,
+      clientName: deal.clientName,
+      value: deal.value,
+      currency: deal.currency,
+      status: "won",
+      stageName: "Won",
+      ownerName: deal.ownerName,
+      ownerEmail: deal.ownerEmail,
+      projectManagerName: deal.projectManagerName,
+      projectManagerEmail: deal.projectManagerEmail,
+      sponsorName: deal.sponsorName,
+      sponsorEmail: deal.sponsorEmail,
+      consultantName: deal.consultantName,
+      consultantEmail: deal.consultantEmail,
+      juniorConsultantName: deal.juniorConsultantName,
+      juniorConsultantEmail: deal.juniorConsultantEmail,
+      serviceType: deal.serviceType,
+      startDate: deal.startDate,
+      notes: deal.notes,
+    },
+    previous: {
+      status: "open",
+      stageName: "Proposal Review",
+    },
+  };
+}
 
 export default function DealInputForm({ onResult }: Props) {
   const [deal, setDeal] = useState<Deal>(initialDeal);
@@ -98,7 +138,7 @@ export default function DealInputForm({ onResult }: Props) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(validation.data),
+        body: JSON.stringify(buildSimulatedWebhookPayload(validation.data)),
       });
 
       const payload = (await response.json().catch(() => null)) as
@@ -145,7 +185,7 @@ export default function DealInputForm({ onResult }: Props) {
         <h2 className="text-xl font-semibold">Deal Input</h2>
         <p className="text-sm text-zinc-400">
           Edit the full delivery team and notification recipients to simulate a
-          realistic won-deal handoff.
+          Pipedrive updated.deal webhook transitioning from open to won.
         </p>
       </div>
 

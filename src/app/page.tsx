@@ -16,7 +16,7 @@ export default function HomePage() {
             AI-Enabled Internal Automation
           </p>
           <h1 className="text-4xl font-semibold">
-            Won Deal → Project Kickoff Workflow
+            Won Deal - Project Kickoff Workflow
           </h1>
           <p className="max-w-3xl text-zinc-300">
             Simulate the workflow triggered when a Pipedrive deal is marked as

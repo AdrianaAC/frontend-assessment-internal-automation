@@ -1,12 +1,13 @@
 import type { AIOutput } from "@/types/ai-output";
 import type { Deal } from "@/types/deal";
-import type { EmailRecipient } from "@/types/workflow";
+import type {
+  ClickupCustomField,
+  ClickupTaskPayload,
+  EmailRecipient,
+} from "@/types/workflow";
 
-export async function mockEmailNotification(
-  deal: Deal,
-  enrichment: Pick<AIOutput, "kickoffEmail">
-) {
-  const recipients: EmailRecipient[] = [
+function buildTeamRecipients(deal: Deal): EmailRecipient[] {
+  return [
     {
       name: deal.ownerName,
       address: deal.ownerEmail,
@@ -40,6 +41,28 @@ export async function mockEmailNotification(
       ) === index
     );
   });
+}
+
+function addDays(startDate: string | undefined, daysToAdd: number) {
+  if (!startDate) {
+    return "TBD";
+  }
+
+  const date = new Date(`${startDate}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) {
+    return "TBD";
+  }
+
+  date.setDate(date.getDate() + daysToAdd);
+  return date.toISOString().slice(0, 10);
+}
+
+export async function mockEmailNotification(
+  deal: Deal,
+  enrichment: Pick<AIOutput, "kickoffEmail">
+) {
+  const recipients = buildTeamRecipients(deal);
 
   const [primaryRecipient, ...ccRecipients] = recipients;
   const payload = {
@@ -95,21 +118,115 @@ export async function mockSharepointMove(deal: Deal) {
   };
 }
 
-export async function mockClickupProject(deal: Deal) {
-  return {
-    status: "success" as const,
-    projectName: `${deal.clientName} - ${deal.dealName}`,
+export async function mockClickupProject(
+  deal: Deal,
+  enrichment: Pick<AIOutput, "clickupTasks" | "projectClassification">
+) {
+  const tags = [
+    deal.serviceType,
+    enrichment.projectClassification.complexity,
+    enrichment.projectClassification.riskLevel,
+  ];
+  const customFields: ClickupCustomField[] = [
+    {
+      name: "Client",
+      value: deal.clientName,
+    },
+    {
+      name: "Deal Value",
+      value: `${deal.value} ${deal.currency}`,
+    },
+    {
+      name: "Project Manager",
+      value: deal.projectManagerName,
+    },
+    {
+      name: "Sponsor",
+      value: deal.sponsorName,
+    },
+    {
+      name: "Template",
+      value: enrichment.projectClassification.recommendedTemplate,
+    },
+  ];
+  const tasks: ClickupTaskPayload[] = enrichment.clickupTasks.map(
+    (task, index) => ({
+      title: task.title,
+      description: task.description,
+      owner: task.owner,
+      priority: task.priority,
+      startDate: deal.startDate ?? "TBD",
+      dueDate: addDays(deal.startDate, index + 2),
+      tags: [deal.serviceType, task.priority],
+    })
+  );
+  const payload = {
+    name: `${deal.clientName} - ${deal.dealName}`,
     space: "Operations",
     folder: "Active Projects",
-    message: `ClickUp project created for ${deal.clientName}.`,
+    owner: deal.projectManagerName,
+    startDate: deal.startDate ?? "TBD",
+    tags,
+    customFields,
+    tasks,
+  };
+
+  return {
+    status: "success" as const,
+    projectName: payload.name,
+    space: payload.space,
+    folder: payload.folder,
+    owner: payload.owner,
+    startDate: payload.startDate,
+    value: `${deal.value} ${deal.currency}`,
+    tags: payload.tags,
+    customFields: payload.customFields,
+    tasks: payload.tasks,
+    payload,
+    message: `ClickUp project created for ${deal.clientName} with ${tasks.length} starter tasks and ${customFields.length} mapped fields.`,
   };
 }
 
-export async function mockTeamsChannel(deal: Deal) {
+export async function mockTeamsChannel(
+  deal: Deal,
+  enrichment: Pick<AIOutput, "teamsIntroMessage">
+) {
+  const members = buildTeamRecipients(deal);
+  const owners = members.filter(
+    (member) =>
+      member.role === "Project Manager" || member.role === "Sales Owner"
+  );
+  const payload = {
+    displayName: `${deal.clientName} Delivery Team`,
+    description: `Project workspace for ${deal.dealName} (${deal.clientName}).`,
+    visibility: "private" as const,
+    owners: owners.map((owner) => ({
+      userPrincipalName: owner.address,
+      displayName: owner.name,
+    })),
+    members: members.map((member) => ({
+      userPrincipalName: member.address,
+      displayName: member.name,
+      role: member.role,
+    })),
+    channels: [
+      {
+        displayName: `${deal.clientName.toLowerCase().replaceAll(" ", "-")}-kickoff`,
+        membershipType: "standard" as const,
+        welcomeMessage: enrichment.teamsIntroMessage,
+      },
+    ],
+  };
+
   return {
     status: "success" as const,
-    teamName: `${deal.clientName} Delivery Team`,
-    channelName: `${deal.clientName.toLowerCase().replaceAll(" ", "-")}-kickoff`,
-    message: `Teams channel created for ${deal.clientName}.`,
+    teamName: payload.displayName,
+    channelName: payload.channels[0].displayName,
+    visibility: payload.visibility,
+    members,
+    owners,
+    welcomeMessage: enrichment.teamsIntroMessage,
+    payload,
+    message: `Teams workspace provisioned with ${members.length} members and kickoff channel seeded with the AI-generated intro message.`,
   };
 }

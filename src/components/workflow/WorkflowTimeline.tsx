@@ -1,13 +1,8 @@
 import StatusBadge from "@/components/workflow/StatusBadge";
-
-type Step = {
-  title: string;
-  description: string;
-  status: string;
-};
+import type { WorkflowExecutionStep } from "@/types/workflow";
 
 type Props = {
-  steps: Step[];
+  steps: WorkflowExecutionStep[];
 };
 
 const markerStyles: Record<string, string> = {
@@ -55,6 +50,22 @@ export default function WorkflowTimeline({ steps }: Props) {
               <p className="mt-2 text-sm leading-6 text-zinc-400">
                 {step.description}
               </p>
+              <div className="mt-3 flex flex-wrap gap-3 text-xs text-zinc-500">
+                <span>{step.durationMs} ms</span>
+                <span>{step.attempts} attempt(s)</span>
+                <span>{step.retryable ? "retryable" : "not retryable"}</span>
+                <span>
+                  {step.approvalRequired
+                    ? "approval required"
+                    : "no approval required"}
+                </span>
+                <span>
+                  {step.continuedAfterFailure
+                    ? "workflow can continue after failure"
+                    : "workflow stops on failure"}
+                </span>
+                {step.errorMessage ? <span>Error: {step.errorMessage}</span> : null}
+              </div>
             </div>
           </li>
         ))}

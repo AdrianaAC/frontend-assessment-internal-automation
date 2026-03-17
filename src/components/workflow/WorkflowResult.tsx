@@ -8,43 +8,32 @@ type Props = {
 };
 
 export default function WorkflowResult({ result }: Props) {
-  const timelineSteps = [
-    {
-      title: "Deal Received",
-      description: `The won deal "${result.deal.dealName}" for ${result.deal.clientName} entered the automation workflow.`,
-      status: "success" as const,
-    },
-    {
-      title: "AI Enrichment",
-      description: `The AI agent classified the project as ${result.enrichment.projectClassification.projectType}, assessed complexity as ${result.enrichment.projectClassification.complexity}, and generated kickoff communication plus starter tasks.`,
-      status: "success" as const,
-    },
-    {
-      title: "Email Notification",
-      description: result.systems.email.message,
-      status: result.systems.email.status,
-    },
-    {
-      title: "SharePoint Setup",
-      description: result.systems.sharepoint.message,
-      status:
-        result.systems.sharepoint.status === "success" ? "success" : "error",
-    },
-    {
-      title: "ClickUp Project Creation",
-      description: result.systems.clickup.message,
-      status: result.systems.clickup.status === "success" ? "success" : "error",
-    },
-    {
-      title: "Teams Channel Provisioning",
-      description: result.systems.teams.message,
-      status: result.systems.teams.status === "success" ? "success" : "error",
-    },
-  ];
-
   return (
     <section className="space-y-6">
-      <WorkflowTimeline steps={timelineSteps} />
+      <ResultCard title="Workflow Execution">
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-300">
+          <div>
+            <p className="text-zinc-500">Overall status</p>
+            <div className="mt-2">
+              <StatusBadge status={result.execution.status} />
+            </div>
+          </div>
+          <div>
+            <p className="text-zinc-500">Total duration</p>
+            <p className="mt-2 text-lg font-medium text-zinc-100">
+              {result.execution.totalDurationMs} ms
+            </p>
+          </div>
+          <div>
+            <p className="text-zinc-500">Executed steps</p>
+            <p className="mt-2 text-lg font-medium text-zinc-100">
+              {result.execution.steps.length}
+            </p>
+          </div>
+        </div>
+      </ResultCard>
+
+      <WorkflowTimeline steps={result.execution.steps} />
 
       <div className="grid gap-6 md:grid-cols-3">
         <ResultCard title="Project Type">
@@ -159,6 +148,75 @@ export default function WorkflowResult({ result }: Props) {
               <span className="text-zinc-500">Folder:</span>{" "}
               {result.systems.clickup.folder}
             </p>
+            <p>
+              <span className="text-zinc-500">Owner:</span>{" "}
+              {result.systems.clickup.owner}
+            </p>
+            <p>
+              <span className="text-zinc-500">Start date:</span>{" "}
+              {result.systems.clickup.startDate}
+            </p>
+            <p>
+              <span className="text-zinc-500">Value:</span>{" "}
+              {result.systems.clickup.value}
+            </p>
+            <div className="pt-1">
+              <p className="text-zinc-500">Tags</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {result.systems.clickup.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-full border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="pt-1">
+              <p className="text-zinc-500">Custom fields</p>
+              <div className="mt-2 space-y-2">
+                {result.systems.clickup.customFields.map((field) => (
+                  <div
+                    key={field.name}
+                    className="rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2"
+                  >
+                    <p className="text-xs uppercase tracking-wide text-zinc-500">
+                      {field.name}
+                    </p>
+                    <p className="mt-1 text-zinc-200">{field.value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="pt-1">
+              <p className="text-zinc-500">Provisioned tasks</p>
+              <div className="mt-2 space-y-2">
+                {result.systems.clickup.tasks.map((task) => (
+                  <div
+                    key={`${task.title}-${task.owner}`}
+                    className="rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-zinc-100">{task.title}</p>
+                      <span className="rounded-full border border-zinc-700 px-2 py-0.5 text-[11px] capitalize text-zinc-300">
+                        {task.priority}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Owner: {task.owner} | Start: {task.startDate} | Due:{" "}
+                      {task.dueDate}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="pt-1">
+              <p className="text-zinc-500">ClickUp payload</p>
+              <pre className="mt-2 overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-950 p-3 text-xs text-zinc-400">
+                {JSON.stringify(result.systems.clickup.payload, null, 2)}
+              </pre>
+            </div>
             <p className="pt-2 text-zinc-400">
               {result.systems.clickup.message}
             </p>
@@ -179,6 +237,48 @@ export default function WorkflowResult({ result }: Props) {
               <span className="text-zinc-500">Channel:</span>{" "}
               {result.systems.teams.channelName}
             </p>
+            <p>
+              <span className="text-zinc-500">Visibility:</span>{" "}
+              {result.systems.teams.visibility}
+            </p>
+            <div className="pt-1">
+              <p className="text-zinc-500">Owners</p>
+              <div className="mt-2 space-y-2">
+                {result.systems.teams.owners.map((owner) => (
+                  <div
+                    key={owner.address}
+                    className="rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2"
+                  >
+                    <p className="text-zinc-100">{owner.name}</p>
+                    <p className="text-xs text-zinc-500">
+                      {owner.role} - {owner.address}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="pt-1">
+              <p className="text-zinc-500">Members</p>
+              <div className="mt-2 space-y-2">
+                {result.systems.teams.members.map((member) => (
+                  <div
+                    key={member.address}
+                    className="rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2"
+                  >
+                    <p className="text-zinc-100">{member.name}</p>
+                    <p className="text-xs text-zinc-500">
+                      {member.role} - {member.address}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="pt-1">
+              <p className="text-zinc-500">Teams payload</p>
+              <pre className="mt-2 overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-950 p-3 text-xs text-zinc-400">
+                {JSON.stringify(result.systems.teams.payload, null, 2)}
+              </pre>
+            </div>
             <p className="pt-2 text-zinc-400">{result.systems.teams.message}</p>
           </div>
         </ResultCard>

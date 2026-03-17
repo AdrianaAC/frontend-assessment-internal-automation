@@ -1,10 +1,54 @@
 import { getOpenAIClient } from "./openai";
 import {
+  aiOutputJsonSchema,
   extractJSONObject,
   validateAIOutput,
 } from "@/lib/validations/ai-output-schema";
 import type { AIOutput } from "@/types/ai-output";
 import type { Deal } from "@/types/deal";
+
+const AI_PROMPT_VERSION = "workflow-enrichment-v2";
+const AI_MAX_ATTEMPTS = 2;
+const AI_SYSTEM_PROMPT = [
+  "You are an enterprise automation AI.",
+  "Generate only the workflow enrichment payload.",
+  "Return valid JSON that matches the provided schema.",
+  "Do not include markdown fences or commentary.",
+].join(" ");
+
+function logAIEvent(
+  level: "info" | "warn" | "error",
+  message: string,
+  context: Record<string, unknown>
+) {
+  console[level](`[ai-enrichment] ${message}`, context);
+}
+
+function createPrompt(deal: Deal) {
+  return `
+Prompt version: ${AI_PROMPT_VERSION}
+
+You are enriching a consulting deal that has just transitioned to WON.
+
+Produce structured output for:
+- project classification
+- kickoff email
+- Teams intro message
+- starter ClickUp tasks
+
+The output will be consumed by internal automation systems, so it must be concise, practical, and production-appropriate.
+
+Deal:
+${JSON.stringify(deal, null, 2)}
+`;
+}
+
+function normalizeAIResponseContent(content: string) {
+  return extractJSONObject(content)
+    .replace(/\u2014/g, "-")
+    .replace(/\u2019/g, "'")
+    .trim();
+}
 
 function buildFallbackOutput(deal: Deal): AIOutput {
   return {
@@ -41,7 +85,7 @@ ${deal.notes ?? "No additional notes."}
 Best regards,
 Automation Bot`,
     },
-    teamsIntroMessage: `Welcome everyone — this project for ${deal.clientName} is now starting.
+    teamsIntroMessage: `Welcome everyone - this project for ${deal.clientName} is now starting.
 
 Team:
 - Sponsor: ${deal.sponsorName}
@@ -52,7 +96,7 @@ Team:
 Main focus:
 ${deal.notes ?? "No additional notes."}
 
-Let’s use this channel for kickoff coordination and early project alignment.`,
+Let's use this channel for kickoff coordination and early project alignment.`,
     clickupTasks: [
       {
         title: "Create kickoff meeting",
@@ -76,78 +120,142 @@ Let’s use this channel for kickoff coordination and early project alignment.`,
   };
 }
 
-export async function enrichDealWithAI(deal: Deal): Promise<AIOutput> {
+export type AIEnrichmentResult = {
+  output: AIOutput;
+  mode: "live" | "fallback";
+  attempts: number;
+  failureReason?: string;
+};
+
+export async function runAIEnrichment(deal: Deal): Promise<AIEnrichmentResult> {
   if (!process.env.OPENAI_API_KEY || !process.env.OPENAI_MODEL) {
-    return buildFallbackOutput(deal);
+    logAIEvent("info", "Using deterministic fallback because AI credentials are missing.", {
+      promptVersion: AI_PROMPT_VERSION,
+      dealId: deal.dealId,
+      model: process.env.OPENAI_MODEL ?? null,
+    });
+    return {
+      output: buildFallbackOutput(deal),
+      mode: "fallback",
+      attempts: 0,
+      failureReason: "missing_credentials",
+    };
   }
 
-  const prompt = `
-You are an enterprise automation assistant.
+  const openai = getOpenAIClient();
+  const prompt = createPrompt(deal);
+  let lastFailureReason = "unknown";
 
-A deal has just been marked as WON.
+  for (let attempt = 1; attempt <= AI_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await openai.chat.completions.create({
+        model: process.env.OPENAI_MODEL,
+        messages: [
+          {
+            role: "system",
+            content: AI_SYSTEM_PROMPT,
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: 0.2,
+        response_format: {
+          type: "json_schema",
+          json_schema: aiOutputJsonSchema,
+        } as never,
+      });
 
-Analyze the deal and return JSON only with this exact shape:
+      const content = response.choices[0]?.message?.content;
 
-{
-  "projectClassification": {
-    "projectType": "string",
-    "complexity": "low | medium | high",
-    "riskLevel": "low | medium | high",
-    "recommendedTemplate": "string"
-  },
-  "kickoffEmail": {
-    "subject": "string",
-    "body": "string"
-  },
-  "teamsIntroMessage": "string",
-  "clickupTasks": [
-    {
-      "title": "string",
-      "description": "string",
-      "owner": "string",
-      "priority": "low | medium | high"
+      if (!content) {
+        lastFailureReason = "empty_response";
+        logAIEvent("warn", "AI response was empty.", {
+          promptVersion: AI_PROMPT_VERSION,
+          dealId: deal.dealId,
+          model: process.env.OPENAI_MODEL,
+          attempt,
+        });
+        continue;
+      }
+
+      let parsedContent: unknown;
+
+      try {
+        parsedContent = JSON.parse(normalizeAIResponseContent(content)) as unknown;
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to parse JSON.";
+        lastFailureReason = "json_parse_failed";
+        logAIEvent("warn", "AI response could not be parsed as JSON.", {
+          promptVersion: AI_PROMPT_VERSION,
+          dealId: deal.dealId,
+          model: process.env.OPENAI_MODEL,
+          attempt,
+          error: errorMessage,
+          contentPreview: content.slice(0, 300),
+        });
+        continue;
+      }
+
+      const validation = validateAIOutput(parsedContent);
+
+      if (!validation.success) {
+        lastFailureReason = "schema_validation_failed";
+        logAIEvent("warn", "AI output validation failed.", {
+          promptVersion: AI_PROMPT_VERSION,
+          dealId: deal.dealId,
+          model: process.env.OPENAI_MODEL,
+          attempt,
+          errors: validation.errors,
+        });
+        continue;
+      }
+
+      logAIEvent("info", "AI enrichment completed successfully.", {
+        promptVersion: AI_PROMPT_VERSION,
+        dealId: deal.dealId,
+        model: process.env.OPENAI_MODEL,
+        attempt,
+      });
+
+      return {
+        output: validation.data,
+        mode: "live",
+        attempts: attempt,
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown AI request failure.";
+      lastFailureReason = "request_failed";
+      logAIEvent("warn", "AI enrichment attempt failed.", {
+        promptVersion: AI_PROMPT_VERSION,
+        dealId: deal.dealId,
+        model: process.env.OPENAI_MODEL,
+        attempt,
+        error: errorMessage,
+      });
     }
-  ]
+  }
+
+  logAIEvent("error", "Falling back after AI enrichment failure.", {
+    promptVersion: AI_PROMPT_VERSION,
+    dealId: deal.dealId,
+    model: process.env.OPENAI_MODEL,
+    attempts: AI_MAX_ATTEMPTS,
+    reason: lastFailureReason,
+  });
+
+  return {
+    output: buildFallbackOutput(deal),
+    mode: "fallback",
+    attempts: AI_MAX_ATTEMPTS,
+    failureReason: lastFailureReason,
+  };
 }
 
-Deal:
-${JSON.stringify(deal, null, 2)}
-`;
-
-  try {
-    const openai = getOpenAIClient();
-    const response = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are an enterprise automation AI. Return only valid JSON.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      temperature: 0.4,
-    });
-
-    const content = response.choices[0]?.message?.content;
-
-    if (!content) {
-      return buildFallbackOutput(deal);
-    }
-
-    const parsedContent = JSON.parse(extractJSONObject(content)) as unknown;
-    const validation = validateAIOutput(parsedContent);
-
-    if (!validation.success) {
-      console.warn("AI output validation failed.", validation.errors);
-      return buildFallbackOutput(deal);
-    }
-
-    return validation.data;
-  } catch {
-    return buildFallbackOutput(deal);
-  }
+export async function enrichDealWithAI(deal: Deal): Promise<AIOutput> {
+  const result = await runAIEnrichment(deal);
+  return result.output;
 }
