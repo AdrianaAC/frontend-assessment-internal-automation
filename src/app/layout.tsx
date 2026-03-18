@@ -25,7 +25,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${spaceGrotesk.variable} ${ibmPlexMono.variable}`}>
+      <body
+        suppressHydrationWarning
+        className={`${spaceGrotesk.variable} ${ibmPlexMono.variable}`}
+      >
         {children}
       </body>
     </html>
