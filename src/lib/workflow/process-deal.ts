@@ -80,6 +80,11 @@ function dedupeRecipients<T extends { address: string }>(recipients: T[]) {
   });
 }
 
+// Removes duplicate string values while keeping the original order.
+function dedupeValues(values: string[]) {
+  return values.filter((value, index) => values.indexOf(value) === index);
+}
+
 // Builds a safe SharePoint folder name from the client name.
 function buildClientFolderName(clientName: string) {
   return sanitizePathSegment(clientName);
@@ -360,11 +365,11 @@ function buildPendingClickupResult(
   deal: Deal,
   enrichment: AIOutput
 ): ClickupResult {
-  const tags = [
+  const tags = dedupeValues([
     deal.serviceType,
     enrichment.projectClassification.complexity,
     enrichment.projectClassification.riskLevel,
-  ];
+  ]);
   const customFields = [
     {
       name: "Client",
@@ -394,7 +399,7 @@ function buildPendingClickupResult(
     priority: task.priority,
     startDate: deal.startDate ?? "TBD",
     dueDate: addDays(deal.startDate, index + 2),
-    tags: [deal.serviceType, task.priority],
+    tags: dedupeValues([deal.serviceType, task.priority]),
   }));
 
   return {

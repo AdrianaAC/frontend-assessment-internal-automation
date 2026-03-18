@@ -48,6 +48,11 @@ function formatDuration(durationMs: number) {
   return `${durationMs} ms`;
 }
 
+// Removes duplicate values while preserving the workflow output order.
+function dedupeValues(values: string[]) {
+  return values.filter((value, index) => values.indexOf(value) === index);
+}
+
 // Renders the shared copy and download controls used across the result views.
 function CopyDownloadActions({
   label,
@@ -205,6 +210,7 @@ export default function WorkflowResult({
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const approvalErrorId = useId();
   const actionMessageId = useId();
+  const clickupTags = dedupeValues(result.systems.clickup.tags);
 
   const tabs: Array<{ id: WorkflowTab; label: string; description: string }> = [
     {
@@ -605,7 +611,7 @@ export default function WorkflowResult({
                       Tags
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {result.systems.clickup.tags.map((tag) => (
+                      {clickupTags.map((tag) => (
                         <span
                           key={tag}
                           className="rounded-full border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300"

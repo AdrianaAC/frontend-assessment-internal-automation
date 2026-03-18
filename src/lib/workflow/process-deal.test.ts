@@ -465,4 +465,26 @@ describe("processDeal", () => {
     expect(result.systems.teams.channelName).toBe("acao-client-kickoff");
     expect(result.systems.teams.teamName).toBe("Ação / Client:*? Delivery Team");
   });
+  it("deduplicates ClickUp tags when complexity and risk level match", async () => {
+    runAIEnrichmentMock.mockResolvedValue({
+      output: createAIOutputFixture({
+        projectClassification: {
+          projectType: "implementation",
+          complexity: "medium",
+          riskLevel: "medium",
+          recommendedTemplate: "Standard Template",
+        },
+      }),
+      mode: "fallback",
+      attempts: 2,
+      failureReason: "json_parse_failed",
+    });
+
+    const { processDeal } = await import("@/lib/workflow/process-deal");
+    const result = await processDeal(createDealFixture());
+
+    expect(result.execution.status).toBe("pending");
+    expect(result.systems.clickup.tags).toEqual(["implementation", "medium"]);
+    expect(result.systems.clickup.payload.tags).toEqual(["implementation", "medium"]);
+  });
 });

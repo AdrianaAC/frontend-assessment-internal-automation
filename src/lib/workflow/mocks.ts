@@ -27,6 +27,11 @@ function dedupeRecipients(recipients: EmailRecipient[]) {
   });
 }
 
+// Removes duplicate string values while preserving their original order.
+function dedupeValues(values: string[]) {
+  return values.filter((value, index) => values.indexOf(value) === index);
+}
+
 // Collects the core delivery team members for Teams provisioning.
 function buildDeliveryTeamRecipients(deal: Deal): EmailRecipient[] {
   return [
@@ -179,11 +184,11 @@ export async function mockClickupProject(
   deal: Deal,
   enrichment: Pick<AIOutput, "clickupTasks" | "projectClassification">
 ) {
-  const tags = [
+  const tags = dedupeValues([
     deal.serviceType,
     enrichment.projectClassification.complexity,
     enrichment.projectClassification.riskLevel,
-  ];
+  ]);
   const customFields: ClickupCustomField[] = [
     {
       name: "Client",
@@ -214,7 +219,7 @@ export async function mockClickupProject(
       priority: task.priority,
       startDate: deal.startDate ?? "TBD",
       dueDate: addDays(deal.startDate, index + 2),
-      tags: [deal.serviceType, task.priority],
+      tags: dedupeValues([deal.serviceType, task.priority]),
     })
   );
   const payload = {
