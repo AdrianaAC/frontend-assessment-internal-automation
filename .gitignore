@@ -45,3 +45,6 @@ next-env.d.ts
 
 dist
 coverage
+.data/
+playwright-report/
+test-results/

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   validateDealInput,
   type DealField,
@@ -8,10 +8,10 @@ import {
 } from "@/lib/validations/deal-schema";
 import type { Deal } from "@/types/deal";
 import type { PipedriveDealWebhookPayload } from "@/types/pipedrive";
-import type { WorkflowResponse } from "@/types/workflow";
+import type { WorkflowRunResponse } from "@/types/workflow";
 
 type Props = {
-  onResult: (result: WorkflowResponse) => void;
+  onResult: (result: WorkflowRunResponse) => void;
 };
 
 const initialDeal: Deal = {
@@ -38,8 +38,9 @@ const initialDeal: Deal = {
 };
 
 const baseFieldClassName =
-  "w-full rounded-lg border bg-zinc-950 px-4 py-3 text-zinc-100 outline-none transition focus:border-zinc-500";
+  "w-full rounded-xl border border-zinc-700/80 bg-zinc-950/80 px-4 py-3 text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] outline-none transition focus:border-amber-300/60 focus:bg-zinc-950 focus:ring-2 focus:ring-amber-300/15";
 
+// Converts the browser form into the same webhook shape the backend expects from Pipedrive.
 function buildSimulatedWebhookPayload(deal: Deal): PipedriveDealWebhookPayload {
   const occurredAt = new Date().toISOString();
 
@@ -81,12 +82,15 @@ function buildSimulatedWebhookPayload(deal: Deal): PipedriveDealWebhookPayload {
   };
 }
 
+// Renders the deal intake form and submits it to the workflow simulator.
 export default function DealInputForm({ onResult }: Props) {
   const [deal, setDeal] = useState<Deal>(initialDeal);
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<DealValidationErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
+  // Updates one deal field and clears any stale error tied to that field.
   function updateDeal<Key extends keyof Deal>(key: Key, value: Deal[Key]) {
     setDeal((currentDeal) => ({ ...currentDeal, [key]: value }));
     setFieldErrors((currentErrors) => {
@@ -102,6 +106,7 @@ export default function DealInputForm({ onResult }: Props) {
     setFormError(null);
   }
 
+  // Returns the right input styling for a field based on its validation state.
   function getFieldClassName(field: DealField) {
     return `${baseFieldClassName} ${
       fieldErrors[field]
@@ -110,6 +115,49 @@ export default function DealInputForm({ onResult }: Props) {
     }`;
   }
 
+  // Returns the DOM id used by assistive technology for a field error.
+  function getFieldErrorId(field: DealField) {
+    return `${field}-error`;
+  }
+
+  // Returns the DOM id used by assistive technology for a field hint.
+  function getFieldHintId(field: DealField) {
+    return `${field}-hint`;
+  }
+
+  // Combines hint and error ids so each field points to the right supporting text.
+  function getFieldDescribedBy(field: DealField, includeHint = false) {
+    const describedBy: string[] = [];
+
+    if (includeHint) {
+      describedBy.push(getFieldHintId(field));
+    }
+
+    if (fieldErrors[field]) {
+      describedBy.push(getFieldErrorId(field));
+    }
+
+    return describedBy.length > 0 ? describedBy.join(" ") : undefined;
+  }
+
+  // Moves focus to the first invalid field after validation fails.
+  function focusFirstInvalidField(errors: DealValidationErrors) {
+    const firstInvalidField = (Object.keys(errors) as DealField[]).find(
+      (field) => errors[field]
+    );
+
+    if (!firstInvalidField) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      formRef.current
+        ?.querySelector<HTMLElement>(`#${firstInvalidField}`)
+        ?.focus();
+    });
+  }
+
+  // Renders the inline error message for one field when validation fails.
   function renderFieldError(field: DealField) {
     const error = fieldErrors[field];
 
@@ -117,9 +165,17 @@ export default function DealInputForm({ onResult }: Props) {
       return null;
     }
 
-    return <p className="mt-2 text-sm text-rose-400">{error}</p>;
+    return (
+      <p
+        id={getFieldErrorId(field)}
+        className="mt-2 text-sm text-rose-400"
+      >
+        {error}
+      </p>
+    );
   }
 
+  // Validates the form, simulates the webhook request, and stores the workflow response.
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -128,6 +184,7 @@ export default function DealInputForm({ onResult }: Props) {
     if (!validation.success) {
       setFieldErrors(validation.errors);
       setFormError("Review the highlighted fields before running the workflow.");
+      focusFirstInvalidField(validation.errors);
       return;
     }
 
@@ -150,7 +207,7 @@ export default function DealInputForm({ onResult }: Props) {
             error?: string;
             fieldErrors?: DealValidationErrors;
           }
-        | WorkflowResponse
+        | WorkflowRunResponse
         | null;
 
       if (!response.ok) {
@@ -160,6 +217,7 @@ export default function DealInputForm({ onResult }: Props) {
           payload.fieldErrors
         ) {
           setFieldErrors(payload.fieldErrors);
+          focusFirstInvalidField(payload.fieldErrors);
         }
 
         setFormError(
@@ -170,7 +228,7 @@ export default function DealInputForm({ onResult }: Props) {
         return;
       }
 
-      onResult(payload as WorkflowResponse);
+      onResult(payload as WorkflowRunResponse);
     } catch (error) {
       console.error(error);
       setFormError("Failed to run automation workflow.");
@@ -181,20 +239,35 @@ export default function DealInputForm({ onResult }: Props) {
 
   return (
     <form
+      ref={formRef}
       onSubmit={handleSubmit}
-      className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6"
+      className="glass-panel rounded-[1.75rem] p-6 sm:p-7"
       noValidate
+      aria-busy={loading}
     >
       <div className="mb-6 space-y-2">
-        <h2 className="text-xl font-semibold">Deal Input</h2>
-        <p className="text-sm text-zinc-400">
-          Edit the full delivery team and notification recipients to simulate a
-          Pipedrive updated.deal webhook transitioning from open to won.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-semibold tracking-[-0.02em] text-white">
+              Deal Input
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
+              Feed the workflow with the post-sale handoff data that would
+              normally arrive from Pipedrive.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/60 px-4 py-3 text-xs uppercase tracking-[0.2em] text-zinc-500">
+            Webhook simulator
+          </div>
+        </div>
       </div>
 
       {formError ? (
-        <div className="mb-6 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
+        <div
+          className="mb-6 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-300"
+          role="alert"
+          aria-live="assertive"
+        >
           {formError}
         </div>
       ) : null}
@@ -202,7 +275,7 @@ export default function DealInputForm({ onResult }: Props) {
       <div className="space-y-6">
         <div className="space-y-4">
           <div>
-            <h3 className="text-sm font-medium uppercase tracking-[0.16em] text-zinc-500">
+            <h3 className="text-sm font-medium uppercase tracking-[0.2em] text-amber-200/90">
               Deal Details
             </h3>
           </div>
@@ -220,6 +293,7 @@ export default function DealInputForm({ onResult }: Props) {
                 placeholder="Deal name"
                 required
                 aria-invalid={Boolean(fieldErrors.dealName)}
+                aria-describedby={getFieldDescribedBy("dealName")}
               />
               {renderFieldError("dealName")}
             </div>
@@ -236,6 +310,7 @@ export default function DealInputForm({ onResult }: Props) {
                 placeholder="Client name"
                 required
                 aria-invalid={Boolean(fieldErrors.clientName)}
+                aria-describedby={getFieldDescribedBy("clientName")}
               />
               {renderFieldError("clientName")}
             </div>
@@ -252,6 +327,7 @@ export default function DealInputForm({ onResult }: Props) {
                 placeholder="Deal ID"
                 required
                 aria-invalid={Boolean(fieldErrors.dealId)}
+                aria-describedby={getFieldDescribedBy("dealId")}
               />
               {renderFieldError("dealId")}
             </div>
@@ -268,7 +344,14 @@ export default function DealInputForm({ onResult }: Props) {
                 onChange={(e) => updateDeal("startDate", e.target.value)}
                 required
                 aria-invalid={Boolean(fieldErrors.startDate)}
+                aria-describedby={getFieldDescribedBy("startDate", true)}
               />
+              <p
+                id={getFieldHintId("startDate")}
+                className="mt-2 text-xs text-zinc-500"
+              >
+                Use a real calendar date in YYYY-MM-DD format.
+              </p>
               {renderFieldError("startDate")}
             </div>
 
@@ -286,6 +369,7 @@ export default function DealInputForm({ onResult }: Props) {
                 placeholder="Deal value"
                 required
                 aria-invalid={Boolean(fieldErrors.value)}
+                aria-describedby={getFieldDescribedBy("value")}
               />
               {renderFieldError("value")}
             </div>
@@ -303,7 +387,14 @@ export default function DealInputForm({ onResult }: Props) {
                 maxLength={3}
                 required
                 aria-invalid={Boolean(fieldErrors.currency)}
+                aria-describedby={getFieldDescribedBy("currency", true)}
               />
+              <p
+                id={getFieldHintId("currency")}
+                className="mt-2 text-xs text-zinc-500"
+              >
+                Three-letter ISO currency code, for example EUR or USD.
+              </p>
               {renderFieldError("currency")}
             </div>
 
@@ -320,6 +411,7 @@ export default function DealInputForm({ onResult }: Props) {
                 }
                 required
                 aria-invalid={Boolean(fieldErrors.serviceType)}
+                aria-describedby={getFieldDescribedBy("serviceType")}
               >
                 <option value="implementation">Implementation</option>
                 <option value="support">Support</option>
@@ -334,7 +426,7 @@ export default function DealInputForm({ onResult }: Props) {
 
         <div className="space-y-4">
           <div>
-            <h3 className="text-sm font-medium uppercase tracking-[0.16em] text-zinc-500">
+            <h3 className="text-sm font-medium uppercase tracking-[0.2em] text-teal-200/90">
               Team And Notifications
             </h3>
             <p className="mt-1 text-sm text-zinc-400">
@@ -356,6 +448,7 @@ export default function DealInputForm({ onResult }: Props) {
                 placeholder="Sales owner"
                 required
                 aria-invalid={Boolean(fieldErrors.ownerName)}
+                aria-describedby={getFieldDescribedBy("ownerName")}
               />
               {renderFieldError("ownerName")}
             </div>
@@ -373,6 +466,7 @@ export default function DealInputForm({ onResult }: Props) {
                 placeholder="sales.owner@company.com"
                 required
                 aria-invalid={Boolean(fieldErrors.ownerEmail)}
+                aria-describedby={getFieldDescribedBy("ownerEmail")}
               />
               {renderFieldError("ownerEmail")}
             </div>
@@ -392,6 +486,7 @@ export default function DealInputForm({ onResult }: Props) {
                 placeholder="Finance contact"
                 required
                 aria-invalid={Boolean(fieldErrors.financeName)}
+                aria-describedby={getFieldDescribedBy("financeName")}
               />
               {renderFieldError("financeName")}
             </div>
@@ -412,6 +507,7 @@ export default function DealInputForm({ onResult }: Props) {
                 placeholder="finance@company.com"
                 required
                 aria-invalid={Boolean(fieldErrors.financeEmail)}
+                aria-describedby={getFieldDescribedBy("financeEmail")}
               />
               {renderFieldError("financeEmail")}
             </div>
@@ -431,6 +527,7 @@ export default function DealInputForm({ onResult }: Props) {
                 placeholder="Project manager"
                 required
                 aria-invalid={Boolean(fieldErrors.projectManagerName)}
+                aria-describedby={getFieldDescribedBy("projectManagerName")}
               />
               {renderFieldError("projectManagerName")}
             </div>
@@ -451,6 +548,7 @@ export default function DealInputForm({ onResult }: Props) {
                 placeholder="project.manager@company.com"
                 required
                 aria-invalid={Boolean(fieldErrors.projectManagerEmail)}
+                aria-describedby={getFieldDescribedBy("projectManagerEmail")}
               />
               {renderFieldError("projectManagerEmail")}
             </div>
@@ -467,6 +565,7 @@ export default function DealInputForm({ onResult }: Props) {
                 placeholder="Sponsor"
                 required
                 aria-invalid={Boolean(fieldErrors.sponsorName)}
+                aria-describedby={getFieldDescribedBy("sponsorName")}
               />
               {renderFieldError("sponsorName")}
             </div>
@@ -484,6 +583,7 @@ export default function DealInputForm({ onResult }: Props) {
                 placeholder="sponsor@company.com"
                 required
                 aria-invalid={Boolean(fieldErrors.sponsorEmail)}
+                aria-describedby={getFieldDescribedBy("sponsorEmail")}
               />
               {renderFieldError("sponsorEmail")}
             </div>
@@ -503,6 +603,7 @@ export default function DealInputForm({ onResult }: Props) {
                 placeholder="Consultant"
                 required
                 aria-invalid={Boolean(fieldErrors.consultantName)}
+                aria-describedby={getFieldDescribedBy("consultantName")}
               />
               {renderFieldError("consultantName")}
             </div>
@@ -523,6 +624,7 @@ export default function DealInputForm({ onResult }: Props) {
                 placeholder="consultant@company.com"
                 required
                 aria-invalid={Boolean(fieldErrors.consultantEmail)}
+                aria-describedby={getFieldDescribedBy("consultantEmail")}
               />
               {renderFieldError("consultantEmail")}
             </div>
@@ -544,6 +646,7 @@ export default function DealInputForm({ onResult }: Props) {
                 placeholder="Junior consultant"
                 required
                 aria-invalid={Boolean(fieldErrors.juniorConsultantName)}
+                aria-describedby={getFieldDescribedBy("juniorConsultantName")}
               />
               {renderFieldError("juniorConsultantName")}
             </div>
@@ -566,6 +669,7 @@ export default function DealInputForm({ onResult }: Props) {
                 placeholder="junior.consultant@company.com"
                 required
                 aria-invalid={Boolean(fieldErrors.juniorConsultantEmail)}
+                aria-describedby={getFieldDescribedBy("juniorConsultantEmail")}
               />
               {renderFieldError("juniorConsultantEmail")}
             </div>
@@ -585,14 +689,18 @@ export default function DealInputForm({ onResult }: Props) {
           placeholder="Additional notes"
           rows={5}
           aria-invalid={Boolean(fieldErrors.notes)}
+          aria-describedby={getFieldDescribedBy("notes", true)}
         />
+        <p id={getFieldHintId("notes")} className="mt-2 text-xs text-zinc-500">
+          Optional context for the AI and downstream provisioning steps.
+        </p>
         {renderFieldError("notes")}
       </div>
 
       <button
         type="submit"
         disabled={loading}
-        className="mt-4 rounded-lg bg-white px-5 py-3 font-medium text-black disabled:opacity-50"
+        className="mt-6 rounded-xl bg-gradient-to-r from-amber-300 via-amber-400 to-orange-300 px-5 py-3 font-medium text-zinc-950 shadow-[0_18px_40px_rgba(243,165,59,0.2)] transition hover:translate-y-[-1px] hover:shadow-[0_22px_44px_rgba(243,165,59,0.28)] disabled:opacity-50"
       >
         {loading ? "Running..." : "Run automation"}
       </button>

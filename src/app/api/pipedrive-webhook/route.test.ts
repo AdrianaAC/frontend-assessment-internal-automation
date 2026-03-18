@@ -1,15 +1,45 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createDealFixture, createWorkflowResponseFixture } from "@/test/fixtures";
+import {
+  createDealFixture,
+  createWebhookEventRecordFixture,
+  createWorkflowResponseFixture,
+  createWorkflowRunRecordFixture,
+} from "@/test/fixtures";
 import type { PipedriveDealWebhookPayload } from "@/types/pipedrive";
 
-const { processDealMock } = vi.hoisted(() => ({
+const {
+  createWorkflowRunMock,
+  markWebhookEventProcessedMock,
+  processDealMock,
+  releaseWebhookEventProcessingMock,
+  startWebhookEventProcessingMock,
+} = vi.hoisted(() => ({
+  createWorkflowRunMock: vi.fn(),
+  markWebhookEventProcessedMock: vi.fn(),
   processDealMock: vi.fn(),
+  releaseWebhookEventProcessingMock: vi.fn(),
+  startWebhookEventProcessingMock: vi.fn(),
 }));
 
 vi.mock("@/lib/workflow/process-deal", () => ({
   processDeal: processDealMock,
 }));
 
+vi.mock("@/lib/workflow/workflow-run-store", () => ({
+  createWorkflowRun: createWorkflowRunMock,
+  toWorkflowRunResponse: (record: ReturnType<typeof createWorkflowRunRecordFixture>) => ({
+    workflowRunId: record.workflowRunId,
+    ...record.response,
+  }),
+}));
+
+vi.mock("@/lib/workflow/webhook-event-store", () => ({
+  startWebhookEventProcessing: startWebhookEventProcessingMock,
+  markWebhookEventProcessed: markWebhookEventProcessedMock,
+  releaseWebhookEventProcessing: releaseWebhookEventProcessingMock,
+}));
+
+// Builds a valid Pipedrive webhook payload for route tests.
 function createWebhookPayload(): PipedriveDealWebhookPayload {
   const deal = createDealFixture();
 
@@ -54,6 +84,19 @@ function createWebhookPayload(): PipedriveDealWebhookPayload {
 describe("POST /api/pipedrive-webhook", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    createWorkflowRunMock.mockResolvedValue(createWorkflowRunRecordFixture());
+    markWebhookEventProcessedMock.mockResolvedValue(
+      createWebhookEventRecordFixture({
+        status: "processed",
+        workflowRunId: "run-001",
+      })
+    );
+    releaseWebhookEventProcessingMock.mockResolvedValue(true);
+    startWebhookEventProcessingMock.mockResolvedValue({
+      ok: true,
+      reclaimedStaleLock: false,
+      record: createWebhookEventRecordFixture(),
+    });
   });
 
   it("maps a won webhook into the internal deal model and returns the workflow response", async () => {
@@ -70,20 +113,51 @@ describe("POST /api/pipedrive-webhook", () => {
         body: JSON.stringify(createWebhookPayload()),
       })
     );
+    const payload = (await response.json()) as { workflowRunId: string };
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("x-correlation-id")).toBeTruthy();
     expect(processDealMock).toHaveBeenCalledWith(
       expect.objectContaining({
         dealId: "DEAL-001",
         dealName: "Digital Transformation Kickoff",
         clientName: "Acme Industries",
+      }),
+      expect.objectContaining({
+        observability: expect.objectContaining({
+          route: "/api/pipedrive-webhook",
+          sourceEventId: "evt-001",
+        }),
       })
     );
+    expect(createWorkflowRunMock).toHaveBeenCalledWith({
+      response: expect.any(Object),
+      sourceEventId: "evt-001",
+    });
+    expect(markWebhookEventProcessedMock).toHaveBeenCalledWith({
+      eventId: "evt-001",
+      workflowRunId: "run-001",
+    });
+    expect(payload.workflowRunId).toBe("run-001");
   });
 
   it("rejects duplicate webhook event ids with a 409 response", async () => {
     vi.resetModules();
     processDealMock.mockResolvedValue(createWorkflowResponseFixture());
+    startWebhookEventProcessingMock
+      .mockResolvedValueOnce({
+        ok: true,
+        reclaimedStaleLock: false,
+        record: createWebhookEventRecordFixture(),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        reason: "processed",
+        record: createWebhookEventRecordFixture({
+          status: "processed",
+          workflowRunId: "run-001",
+        }),
+      });
     const { POST } = await import("@/app/api/pipedrive-webhook/route");
     const payload = createWebhookPayload();
 
@@ -113,6 +187,26 @@ describe("POST /api/pipedrive-webhook", () => {
     expect(processDealMock).toHaveBeenCalledTimes(1);
   });
 
+  it("releases the webhook claim when processing fails", async () => {
+    vi.resetModules();
+    processDealMock.mockRejectedValue(new Error("workflow failed"));
+    const { POST } = await import("@/app/api/pipedrive-webhook/route");
+
+    const response = await POST(
+      new Request("http://localhost/api/pipedrive-webhook", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(createWebhookPayload()),
+      })
+    );
+
+    expect(response.status).toBe(500);
+    expect(releaseWebhookEventProcessingMock).toHaveBeenCalledWith("evt-001");
+    expect(markWebhookEventProcessedMock).not.toHaveBeenCalled();
+  });
+
   it("rejects webhook payloads that do not transition into won", async () => {
     vi.resetModules();
     const { POST } = await import("@/app/api/pipedrive-webhook/route");
@@ -132,6 +226,32 @@ describe("POST /api/pipedrive-webhook", () => {
 
     expect(response.status).toBe(400);
     expect(body.error).toBe("Webhook does not represent a transition into won.");
+    expect(processDealMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects webhook payloads with invalid occurredAt or startDate values", async () => {
+    vi.resetModules();
+    const { POST } = await import("@/app/api/pipedrive-webhook/route");
+    const payload = createWebhookPayload();
+    payload.meta.occurredAt = "not-a-date";
+    payload.current.startDate = "2026-02-30";
+
+    const response = await POST(
+      new Request("http://localhost/api/pipedrive-webhook", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      })
+    );
+    const body = (await response.json()) as {
+      error: string;
+      fieldErrors?: Record<string, string>;
+    };
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe("Webhook occurredAt is invalid.");
     expect(processDealMock).not.toHaveBeenCalled();
   });
 });

@@ -134,6 +134,7 @@ export type AIOutputValidationResult =
   | AIOutputValidationSuccess
   | AIOutputValidationFailure;
 
+// Validates that the model output matches the contract expected by the workflow.
 export function validateAIOutput(input: unknown): AIOutputValidationResult {
   const validation = aiOutputSchema.safeParse(input);
 
@@ -150,6 +151,7 @@ export function validateAIOutput(input: unknown): AIOutputValidationResult {
   };
 }
 
+// Strips optional markdown fences from model output before JSON parsing.
 export function extractJSONObject(value: string) {
   const trimmedValue = value.trim();
 

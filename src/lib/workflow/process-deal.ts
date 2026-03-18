@@ -1,5 +1,17 @@
 import { runAIEnrichment } from "@/lib/ai/prompts";
 import {
+  buildChannelSlug,
+  normalizeEmailAddress,
+  sanitizeDisplayName,
+  sanitizePathSegment,
+} from "@/lib/normalization/deal-normalization";
+import {
+  getErrorDetails,
+  logInfo,
+  logWarn,
+  type CorrelationContext,
+} from "@/lib/observability/logger";
+import {
   createClickupProject,
   getIntegrationMetadata,
   moveSharepointFolder,
@@ -32,6 +44,7 @@ type ProcessDealOptions = {
   };
   enrichmentOverride?: AIOutput;
   approvalDecision?: WorkflowApprovalDecision;
+  observability?: Partial<CorrelationContext>;
 };
 
 type StepRunResult<T> = {
@@ -39,6 +52,7 @@ type StepRunResult<T> = {
   step: WorkflowExecutionStep;
 };
 
+// Decides whether this workflow should pause for a human check before provisioning.
 function requiresApproval(options: {
   status: WorkflowSystemStatus;
   riskLevel?: "low" | "medium" | "high";
@@ -51,17 +65,37 @@ function requiresApproval(options: {
   );
 }
 
+// Removes duplicate recipients so each email address is used only once.
 function dedupeRecipients<T extends { address: string }>(recipients: T[]) {
   return recipients.filter((recipient, index, allRecipients) => {
+    const normalizedAddress = normalizeEmailAddress(recipient.address);
+
     return (
-      recipient.address.trim().length > 0 &&
+      normalizedAddress.length > 0 &&
       allRecipients.findIndex(
-        (candidate) => candidate.address === recipient.address
+        (candidate) =>
+          normalizeEmailAddress(candidate.address) === normalizedAddress
       ) === index
     );
   });
 }
 
+// Builds a safe SharePoint folder name from the client name.
+function buildClientFolderName(clientName: string) {
+  return sanitizePathSegment(clientName);
+}
+
+// Builds the display name for the Teams workspace.
+function buildTeamName(clientName: string) {
+  return sanitizeDisplayName(`${clientName} Delivery Team`, "Delivery Team");
+}
+
+// Builds the kickoff channel name that will be created in Teams.
+function buildKickoffChannelName(clientName: string) {
+  return buildChannelSlug(clientName, "kickoff");
+}
+
+// Collects the people who should receive the kickoff email.
 function buildNotificationRecipients(deal: Deal) {
   return dedupeRecipients([
     {
@@ -97,6 +131,7 @@ function buildNotificationRecipients(deal: Deal) {
   ]);
 }
 
+// Collects the people who should be added to the delivery workspace.
 function buildDeliveryTeamMembers(deal: Deal) {
   return dedupeRecipients([
     {
@@ -127,6 +162,7 @@ function buildDeliveryTeamMembers(deal: Deal) {
   ]);
 }
 
+// Calculates a future date for task planning when a valid start date exists.
 function addDays(startDate: string | undefined, daysToAdd: number) {
   if (!startDate) {
     return "TBD";
@@ -142,6 +178,7 @@ function addDays(startDate: string | undefined, daysToAdd: number) {
   return date.toISOString().slice(0, 10);
 }
 
+// Explains why this run needs human review before continuing.
 function buildApprovalReason(
   context: WorkflowAIExecutionContext,
   riskLevel: "low" | "medium" | "high"
@@ -159,6 +196,7 @@ function buildApprovalReason(
   return reasons.join(" and ");
 }
 
+// Creates the approval state shown while the workflow is waiting for review.
 function buildApprovalPendingState(
   reason: string
 ): Extract<WorkflowApprovalState, { status: "pending" }> {
@@ -169,6 +207,7 @@ function buildApprovalPendingState(
   };
 }
 
+// Creates the approval state shown after a reviewer has allowed the workflow to continue.
 function buildApprovalApprovedState(
   reason: string,
   decision: WorkflowApprovalDecision
@@ -183,6 +222,7 @@ function buildApprovalApprovedState(
   };
 }
 
+// Builds the fallback email result shown when the email step fails.
 function buildEmailFailureResult(
   deal: Deal,
   errorMessage: string
@@ -211,6 +251,7 @@ function buildEmailFailureResult(
   };
 }
 
+// Builds the email payload preview that is shown while approval is still pending.
 function buildPendingEmailResult(
   deal: Deal,
   enrichment: AIOutput
@@ -256,6 +297,7 @@ function buildPendingEmailResult(
   };
 }
 
+// Builds the fallback SharePoint result shown when folder provisioning fails.
 function buildSharepointFailureResult(
   deal: Deal,
   errorMessage: string
@@ -264,23 +306,25 @@ function buildSharepointFailureResult(
     status: "error",
     integration: getIntegrationMetadata("sharepoint"),
     action: "move",
-    sourceFolder: `/Propostas em Curso/${deal.clientName}`,
-    destinationFolder: `/Projetos Ativos/${deal.clientName}`,
+    sourceFolder: `/Propostas em Curso/${buildClientFolderName(deal.clientName)}`,
+    destinationFolder: `/Projetos Ativos/${buildClientFolderName(deal.clientName)}`,
     message: `SharePoint provisioning failed: ${errorMessage}`,
   };
 }
 
+// Builds the SharePoint move preview that is shown while approval is still pending.
 function buildPendingSharepointResult(deal: Deal): SharepointResult {
   return {
     status: "pending",
     integration: getIntegrationMetadata("sharepoint"),
     action: "move",
-    sourceFolder: `/Propostas em Curso/${deal.clientName}`,
-    destinationFolder: `/Projetos Ativos/${deal.clientName}`,
+    sourceFolder: `/Propostas em Curso/${buildClientFolderName(deal.clientName)}`,
+    destinationFolder: `/Projetos Ativos/${buildClientFolderName(deal.clientName)}`,
     message: "SharePoint move is queued and waiting for human approval.",
   };
 }
 
+// Builds the fallback ClickUp result shown when project creation fails.
 function buildClickupFailureResult(
   deal: Deal,
   errorMessage: string
@@ -311,6 +355,7 @@ function buildClickupFailureResult(
   };
 }
 
+// Builds the ClickUp project preview that is shown while approval is still pending.
 function buildPendingClickupResult(
   deal: Deal,
   enrichment: AIOutput
@@ -378,6 +423,7 @@ function buildPendingClickupResult(
   };
 }
 
+// Builds the fallback Teams result shown when workspace provisioning fails.
 function buildTeamsFailureResult(
   deal: Deal,
   errorMessage: string
@@ -385,14 +431,14 @@ function buildTeamsFailureResult(
   return {
     status: "error",
     integration: getIntegrationMetadata("teams"),
-    teamName: `${deal.clientName} Delivery Team`,
-    channelName: `${deal.clientName.toLowerCase().replaceAll(" ", "-")}-kickoff`,
+    teamName: buildTeamName(deal.clientName),
+    channelName: buildKickoffChannelName(deal.clientName),
     visibility: "private",
     members: [],
     owners: [],
     welcomeMessage: "",
     payload: {
-      displayName: `${deal.clientName} Delivery Team`,
+      displayName: buildTeamName(deal.clientName),
       description: `Project workspace for ${deal.dealName} (${deal.clientName}).`,
       visibility: "private",
       owners: [],
@@ -403,6 +449,7 @@ function buildTeamsFailureResult(
   };
 }
 
+// Builds the Teams workspace preview that is shown while approval is still pending.
 function buildPendingTeamsResult(deal: Deal, enrichment: AIOutput): TeamsResult {
   const members = buildDeliveryTeamMembers(deal);
   const owners = members.filter(
@@ -413,14 +460,14 @@ function buildPendingTeamsResult(deal: Deal, enrichment: AIOutput): TeamsResult 
   return {
     status: "pending",
     integration: getIntegrationMetadata("teams"),
-    teamName: `${deal.clientName} Delivery Team`,
-    channelName: `${deal.clientName.toLowerCase().replaceAll(" ", "-")}-kickoff`,
+    teamName: buildTeamName(deal.clientName),
+    channelName: buildKickoffChannelName(deal.clientName),
     visibility: "private",
     members,
     owners,
     welcomeMessage: enrichment.teamsIntroMessage,
     payload: {
-      displayName: `${deal.clientName} Delivery Team`,
+      displayName: buildTeamName(deal.clientName),
       description: `Project workspace for ${deal.dealName} (${deal.clientName}).`,
       visibility: "private",
       owners: owners.map((owner) => ({
@@ -434,7 +481,7 @@ function buildPendingTeamsResult(deal: Deal, enrichment: AIOutput): TeamsResult 
       })),
       channels: [
         {
-          displayName: `${deal.clientName.toLowerCase().replaceAll(" ", "-")}-kickoff`,
+          displayName: buildKickoffChannelName(deal.clientName),
           membershipType: "standard",
           welcomeMessage: enrichment.teamsIntroMessage,
         },
@@ -444,6 +491,7 @@ function buildPendingTeamsResult(deal: Deal, enrichment: AIOutput): TeamsResult 
   };
 }
 
+// Runs one workflow step with retry handling and records its outcome for the timeline.
 async function runWorkflowStep<T>(config: {
   id: string;
   title: string;
@@ -455,16 +503,36 @@ async function runWorkflowStep<T>(config: {
   run: () => Promise<T>;
   onSuccessDescription: (result: T) => string;
   onFailureResult: (errorMessage: string) => T;
+  observability?: Record<string, unknown>;
 }): Promise<StepRunResult<T>> {
   const startedAt = Date.now();
   let attempts = 0;
   let lastErrorMessage = "Unknown error.";
+
+  logInfo("workflow.step.started", {
+    ...config.observability,
+    stepId: config.id,
+    stepTitle: config.title,
+    retryable: config.retryable,
+    maxAttempts: config.maxAttempts,
+  });
 
   while (attempts < config.maxAttempts) {
     attempts += 1;
 
     try {
       const result = await config.run();
+      const durationMs = Date.now() - startedAt;
+
+      logInfo("workflow.step.completed", {
+        ...config.observability,
+        stepId: config.id,
+        stepTitle: config.title,
+        status: "success",
+        attempts,
+        durationMs,
+      });
+
       return {
         result,
         step: {
@@ -472,7 +540,7 @@ async function runWorkflowStep<T>(config: {
           title: config.title,
           status: "success",
           description: config.onSuccessDescription(result),
-          durationMs: Date.now() - startedAt,
+          durationMs,
           attempts,
           retryable: config.retryable,
           approvalRequired: config.approvalRequiredOnSuccess,
@@ -483,11 +551,33 @@ async function runWorkflowStep<T>(config: {
       lastErrorMessage =
         error instanceof Error ? error.message : "Unknown workflow step failure.";
 
+      logWarn("workflow.step.attempt_failed", {
+        ...config.observability,
+        stepId: config.id,
+        stepTitle: config.title,
+        attempt: attempts,
+        maxAttempts: config.maxAttempts,
+        error: getErrorDetails(error),
+        durationMs: Date.now() - startedAt,
+      });
+
       if (!config.retryable || attempts >= config.maxAttempts) {
         break;
       }
     }
   }
+
+  const durationMs = Date.now() - startedAt;
+
+  logWarn("workflow.step.completed", {
+    ...config.observability,
+    stepId: config.id,
+    stepTitle: config.title,
+    status: "error",
+    attempts,
+    durationMs,
+    errorMessage: lastErrorMessage,
+  });
 
   return {
     result: config.onFailureResult(lastErrorMessage),
@@ -496,7 +586,7 @@ async function runWorkflowStep<T>(config: {
       title: config.title,
       status: "error",
       description: `${config.title} failed, but the workflow continued where possible.`,
-      durationMs: Date.now() - startedAt,
+      durationMs,
       attempts,
       retryable: config.retryable,
       approvalRequired: config.approvalRequiredOnFailure,
@@ -506,11 +596,22 @@ async function runWorkflowStep<T>(config: {
   };
 }
 
+// Orchestrates the full won-deal workflow from AI enrichment through downstream systems.
 export async function processDeal(
   deal: Deal,
   options: ProcessDealOptions = {}
 ): Promise<WorkflowResponse> {
   const workflowStartedAt = Date.now();
+  const observabilityContext = {
+    correlationId: options.observability?.correlationId,
+    route: options.observability?.route,
+    workflowRunId: options.observability?.workflowRunId,
+    sourceEventId: options.observability?.sourceEventId,
+    dealId: deal.dealId,
+    clientName: deal.clientName,
+  };
+
+  logInfo("workflow.execution.started", observabilityContext);
   const steps: WorkflowExecutionStep[] = [
     {
       id: "deal-received",
@@ -534,7 +635,7 @@ export async function processDeal(
           failureReason: options.enrichmentContext.failureReason,
           output: options.enrichmentOverride,
         }
-      : await runAIEnrichment(deal);
+      : await runAIEnrichment(deal, options.observability);
   const enrichment = options.enrichmentOverride ?? generatedEnrichmentContext.output;
   const enrichmentContext: WorkflowAIExecutionContext = {
     mode: generatedEnrichmentContext.mode,
@@ -574,6 +675,17 @@ export async function processDeal(
         : undefined,
   });
 
+  logInfo("workflow.ai_enrichment.completed", {
+    ...observabilityContext,
+    mode: enrichmentContext.mode,
+    attempts: enrichmentContext.attempts,
+    failureReason: enrichmentContext.failureReason,
+    riskLevel: enrichment.projectClassification.riskLevel,
+    complexity: enrichment.projectClassification.complexity,
+    durationMs: Date.now() - aiStartedAt,
+    approvalRequired: approvalIsRequired,
+  });
+
   if (approvalIsRequired && !options.approvalDecision) {
     steps.push({
       id: "human-approval",
@@ -585,6 +697,12 @@ export async function processDeal(
       retryable: false,
       approvalRequired: true,
       continuedAfterFailure: false,
+    });
+
+    logWarn("workflow.execution.paused_for_approval", {
+      ...observabilityContext,
+      reason: approvalReason,
+      totalDurationMs: Date.now() - workflowStartedAt,
     });
 
     return {
@@ -614,6 +732,12 @@ export async function processDeal(
         };
 
   if (approvalState.status === "approved") {
+    logInfo("workflow.execution.approval_received", {
+      ...observabilityContext,
+      approvedBy: approvalState.approvedBy,
+      approvedAt: approvalState.approvedAt,
+    });
+
     steps.push({
       id: "human-approval",
       title: "Human Approval",
@@ -639,6 +763,7 @@ export async function processDeal(
       run: () => prepareEmailNotification(deal, enrichment),
       onSuccessDescription: (result) => result.message,
       onFailureResult: (errorMessage) => buildEmailFailureResult(deal, errorMessage),
+      observability: observabilityContext,
     }),
     runWorkflowStep<SharepointResult>({
       id: "sharepoint-setup",
@@ -652,6 +777,7 @@ export async function processDeal(
       onSuccessDescription: (result) => result.message,
       onFailureResult: (errorMessage) =>
         buildSharepointFailureResult(deal, errorMessage),
+      observability: observabilityContext,
     }),
     runWorkflowStep<ClickupResult>({
       id: "clickup-project-creation",
@@ -664,6 +790,7 @@ export async function processDeal(
       run: () => createClickupProject(deal, enrichment),
       onSuccessDescription: (result) => result.message,
       onFailureResult: (errorMessage) => buildClickupFailureResult(deal, errorMessage),
+      observability: observabilityContext,
     }),
     runWorkflowStep<TeamsResult>({
       id: "teams-channel-provisioning",
@@ -676,6 +803,7 @@ export async function processDeal(
       run: () => provisionTeamsWorkspace(deal, enrichment),
       onSuccessDescription: (result) => result.message,
       onFailureResult: (errorMessage) => buildTeamsFailureResult(deal, errorMessage),
+      observability: observabilityContext,
     }),
   ]);
 
@@ -687,6 +815,29 @@ export async function processDeal(
       : steps.some((step) => step.status === "warning")
         ? ("warning" as const)
         : ("success" as const);
+
+  const systemStatuses = {
+    email: emailStep.result.status,
+    sharepoint: sharepointStep.result.status,
+    clickup: clickupStep.result.status,
+    teams: teamsStep.result.status,
+  };
+
+  if (executionStatus === "error" || executionStatus === "warning") {
+    logWarn("workflow.execution.completed", {
+      ...observabilityContext,
+      executionStatus,
+      totalDurationMs: Date.now() - workflowStartedAt,
+      systemStatuses,
+    });
+  } else {
+    logInfo("workflow.execution.completed", {
+      ...observabilityContext,
+      executionStatus,
+      totalDurationMs: Date.now() - workflowStartedAt,
+      systemStatuses,
+    });
+  }
 
   return {
     deal,

@@ -80,6 +80,7 @@ Open `http://localhost:3000`.
 
 ```bash
 npm test
+npm run test:e2e
 npm run lint
 npm run build
 ```
@@ -352,6 +353,7 @@ The repository includes an automated test suite covering:
 - Approval pause/resume behavior
 - Deal payload validation
 - Pipedrive webhook mapping, won-transition checks, and idempotency behavior
+- Browser-level workflow execution, approval resume, and form validation via Playwright
 
 Representative files:
 
@@ -360,3 +362,4 @@ Representative files:
 - [src/app/api/ai/enrich-deal/route.test.ts](C:/Users/adria/Desktop/Projects/Assessments/frontend-assessment-internal-automation/src/app/api/ai/enrich-deal/route.test.ts)
 - [src/app/api/pipedrive-webhook/route.test.ts](C:/Users/adria/Desktop/Projects/Assessments/frontend-assessment-internal-automation/src/app/api/pipedrive-webhook/route.test.ts)
 - [src/app/api/workflow/resume/route.test.ts](C:/Users/adria/Desktop/Projects/Assessments/frontend-assessment-internal-automation/src/app/api/workflow/resume/route.test.ts)
+- [tests/e2e/workflow.spec.ts](C:/Users/adria/Desktop/Projects/Assessments/frontend-assessment-internal-automation/tests/e2e/workflow.spec.ts)

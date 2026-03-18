@@ -430,4 +430,39 @@ describe("processDeal", () => {
     expect(prepareEmailNotificationMock).toHaveBeenCalledTimes(1);
     expect(runAIEnrichmentMock).not.toHaveBeenCalled();
   });
+
+  it("normalizes duplicate recipient emails and sanitizes resource names in pending outputs", async () => {
+    runAIEnrichmentMock.mockResolvedValue({
+      output: createAIOutputFixture({
+        projectClassification: {
+          projectType: "implementation",
+          complexity: "medium",
+          riskLevel: "high",
+          recommendedTemplate: "Standard Template",
+        },
+      }),
+      mode: "live",
+      attempts: 1,
+    });
+
+    const { processDeal } = await import("@/lib/workflow/process-deal");
+    const result = await processDeal(
+      createDealFixture({
+        clientName: ' Ação / Client:*?  ',
+        ownerEmail: "TEAM@company.com",
+        projectManagerEmail: "team@company.com",
+      })
+    );
+
+    expect(result.execution.status).toBe("pending");
+    expect(result.systems.email.recipients).toHaveLength(5);
+    expect(result.systems.sharepoint.sourceFolder).toBe(
+      "/Propostas em Curso/Ação Client"
+    );
+    expect(result.systems.sharepoint.destinationFolder).toBe(
+      "/Projetos Ativos/Ação Client"
+    );
+    expect(result.systems.teams.channelName).toBe("acao-client-kickoff");
+    expect(result.systems.teams.teamName).toBe("Ação / Client:*? Delivery Team");
+  });
 });

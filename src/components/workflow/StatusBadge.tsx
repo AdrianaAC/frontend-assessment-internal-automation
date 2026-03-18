@@ -3,12 +3,17 @@ type Props = {
 };
 
 const statusStyles: Record<string, string> = {
-  success: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
-  error: "border-rose-500/30 bg-rose-500/10 text-rose-300",
-  warning: "border-amber-500/30 bg-amber-500/10 text-amber-300",
-  pending: "border-sky-500/30 bg-sky-500/10 text-sky-300",
+  success:
+    "border-emerald-400/30 bg-emerald-400/12 text-emerald-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
+  error:
+    "border-rose-400/30 bg-rose-400/12 text-rose-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
+  warning:
+    "border-amber-300/30 bg-amber-300/12 text-amber-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
+  pending:
+    "border-cyan-300/30 bg-cyan-300/12 text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
 };
 
+// Shows a consistently styled status label for workflow steps and systems.
 export default function StatusBadge({ status }: Props) {
   const normalizedStatus = status.trim().toLowerCase();
   const statusClassName =
@@ -17,8 +22,9 @@ export default function StatusBadge({ status }: Props) {
 
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium capitalize ${statusClassName}`}
+      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.22em] ${statusClassName}`}
     >
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
       {normalizedStatus}
     </span>
   );

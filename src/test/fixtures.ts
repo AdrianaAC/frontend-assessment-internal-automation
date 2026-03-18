@@ -1,7 +1,35 @@
 import type { AIOutput } from "@/types/ai-output";
 import type { Deal } from "@/types/deal";
-import type { WorkflowResponse } from "@/types/workflow";
+import type {
+  WorkflowResponse,
+  WorkflowRunRecord,
+  WorkflowRunResponse,
+} from "@/types/workflow";
 
+// Builds a sample webhook-event record for tests that exercise idempotency behavior.
+export function createWebhookEventRecordFixture(
+  overrides: Partial<{
+    eventId: string;
+    status: "processing" | "processed";
+    source: string;
+    occurredAt: string;
+    createdAt: string;
+    updatedAt: string;
+    workflowRunId?: string;
+  }> = {}
+) {
+  return {
+    eventId: "evt-001",
+    status: "processing" as const,
+    source: "pipedrive-webhook",
+    occurredAt: "2026-03-16T10:00:00.000Z",
+    createdAt: "2026-03-17T00:00:00.000Z",
+    updatedAt: "2026-03-17T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+// Builds a representative deal object that tests can customize as needed.
 export function createDealFixture(overrides: Partial<Deal> = {}): Deal {
   return {
     dealId: "DEAL-001",
@@ -28,6 +56,7 @@ export function createDealFixture(overrides: Partial<Deal> = {}): Deal {
   };
 }
 
+// Builds a representative AI enrichment payload for tests.
 export function createAIOutputFixture(overrides: Partial<AIOutput> = {}): AIOutput {
   return {
     projectClassification: {
@@ -53,6 +82,7 @@ export function createAIOutputFixture(overrides: Partial<AIOutput> = {}): AIOutp
   };
 }
 
+// Builds a complete workflow response fixture that mirrors the live API shape.
 export function createWorkflowResponseFixture(
   overrides: Partial<WorkflowResponse> = {}
 ): WorkflowResponse {
@@ -200,6 +230,32 @@ export function createWorkflowResponseFixture(
         message: "Teams provisioned.",
       },
     },
+    ...overrides,
+  };
+}
+
+// Builds a stored workflow-run record fixture for persistence-related tests.
+export function createWorkflowRunRecordFixture(
+  overrides: Partial<WorkflowRunRecord> = {}
+): WorkflowRunRecord {
+  return {
+    workflowRunId: "run-001",
+    createdAt: "2026-03-17T00:00:00.000Z",
+    updatedAt: "2026-03-17T00:00:00.000Z",
+    response: createWorkflowResponseFixture(),
+    ...overrides,
+  };
+}
+
+// Builds the workflow response shape returned to the UI after persistence metadata is added.
+export function createWorkflowRunResponseFixture(
+  overrides: Partial<WorkflowRunResponse> = {}
+): WorkflowRunResponse {
+  const record = createWorkflowRunRecordFixture();
+
+  return {
+    workflowRunId: record.workflowRunId,
+    ...record.response,
     ...overrides,
   };
 }

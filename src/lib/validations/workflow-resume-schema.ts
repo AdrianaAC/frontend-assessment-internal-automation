@@ -1,19 +1,4 @@
 import { z } from "zod";
-import { aiOutputSchema } from "@/lib/validations/ai-output-schema";
-import { dealSchema } from "@/lib/validations/deal-schema";
-import type { AIOutput } from "@/types/ai-output";
-import type { Deal } from "@/types/deal";
-import type { WorkflowAIExecutionContext } from "@/types/workflow";
-
-const workflowAIExecutionContextSchema = z.object({
-  mode: z.enum(["live", "fallback"]),
-  attempts: z.number().int().min(0),
-  failureReason: z
-    .string()
-    .trim()
-    .optional()
-    .transform((value) => (value && value.length > 0 ? value : undefined)),
-});
 
 const approvalSchema = z.object({
   approvedBy: z.string().trim().min(1, "Approver name is required."),
@@ -25,18 +10,14 @@ const approvalSchema = z.object({
 });
 
 const workflowResumeSchema = z.object({
-  deal: dealSchema,
-  enrichment: aiOutputSchema,
-  enrichmentContext: workflowAIExecutionContextSchema,
+  workflowRunId: z.string().trim().min(1, "Workflow run ID is required."),
   approval: approvalSchema,
 });
 
 type WorkflowResumeValidationSuccess = {
   success: true;
   data: {
-    deal: Deal;
-    enrichment: AIOutput;
-    enrichmentContext: WorkflowAIExecutionContext;
+    workflowRunId: string;
     approval: {
       approvedBy: string;
       notes?: string;
@@ -54,6 +35,7 @@ export type WorkflowResumeValidationResult =
   | WorkflowResumeValidationSuccess
   | WorkflowResumeValidationFailure;
 
+// Validates the approval payload used to resume a paused workflow run.
 export function validateWorkflowResumeInput(
   input: unknown
 ): WorkflowResumeValidationResult {
@@ -70,9 +52,7 @@ export function validateWorkflowResumeInput(
   return {
     success: true,
     data: {
-      deal: validation.data.deal,
-      enrichment: validation.data.enrichment,
-      enrichmentContext: validation.data.enrichmentContext,
+      workflowRunId: validation.data.workflowRunId,
       approval: validation.data.approval,
     },
   };

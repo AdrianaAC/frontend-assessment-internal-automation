@@ -1,4 +1,5 @@
 import { validateDealInput, type DealValidationErrors } from "@/lib/validations/deal-schema";
+import { isValidISODateString } from "@/lib/normalization/deal-normalization";
 import type { Deal } from "@/types/deal";
 import type { PipedriveDealStatus } from "@/types/pipedrive";
 
@@ -23,12 +24,14 @@ export type PipedriveWebhookValidationResult =
 
 const validStatuses = new Set<PipedriveDealStatus>(["open", "won", "lost"]);
 
+// Reads a required string field from the webhook payload after trimming whitespace.
 function readRequiredString(value: unknown) {
   return typeof value === "string" && value.trim().length > 0
     ? value.trim()
     : null;
 }
 
+// Validates the inbound webhook and maps it into the internal deal shape.
 export function validateAndMapPipedriveWebhook(
   input: unknown
 ): PipedriveWebhookValidationResult {
@@ -96,6 +99,15 @@ export function validateAndMapPipedriveWebhook(
     };
   }
 
+  const occurredAtDate = new Date(occurredAt);
+
+  if (Number.isNaN(occurredAtDate.getTime())) {
+    return {
+      success: false,
+      error: "Webhook occurredAt is invalid.",
+    };
+  }
+
   if (!currentStatus || !validStatuses.has(currentStatus as PipedriveDealStatus)) {
     return {
       success: false,
@@ -146,6 +158,20 @@ export function validateAndMapPipedriveWebhook(
     startDate: currentSource.startDate,
     notes: currentSource.notes,
   };
+
+  if (
+    typeof currentSource.startDate === "string" &&
+    currentSource.startDate.trim().length > 0 &&
+    !isValidISODateString(currentSource.startDate.trim())
+  ) {
+    return {
+      success: false,
+      error: "Webhook current payload is invalid.",
+      fieldErrors: {
+        startDate: "Start date must be a real calendar date.",
+      },
+    };
+  }
 
   const dealValidation = validateDealInput(mappedDealInput);
 

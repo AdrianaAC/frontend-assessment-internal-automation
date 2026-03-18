@@ -5,18 +5,29 @@ import type {
   ClickupTaskPayload,
   EmailRecipient,
 } from "@/types/workflow";
+import {
+  buildChannelSlug,
+  normalizeEmailAddress,
+  sanitizeDisplayName,
+  sanitizePathSegment,
+} from "@/lib/normalization/deal-normalization";
 
+// Removes duplicate recipients so each email address is only represented once.
 function dedupeRecipients(recipients: EmailRecipient[]) {
   return recipients.filter((recipient, index, allRecipients) => {
+    const normalizedAddress = normalizeEmailAddress(recipient.address);
+
     return (
-      recipient.address.trim().length > 0 &&
+      normalizedAddress.length > 0 &&
       allRecipients.findIndex(
-        (candidate) => candidate.address === recipient.address
+        (candidate) =>
+          normalizeEmailAddress(candidate.address) === normalizedAddress
       ) === index
     );
   });
 }
 
+// Collects the core delivery team members for Teams provisioning.
 function buildDeliveryTeamRecipients(deal: Deal): EmailRecipient[] {
   return [
     {
@@ -47,6 +58,7 @@ function buildDeliveryTeamRecipients(deal: Deal): EmailRecipient[] {
   ];
 }
 
+// Collects the people who should receive the kickoff notification.
 function buildNotificationRecipients(deal: Deal): EmailRecipient[] {
   return dedupeRecipients([
     {
@@ -82,6 +94,7 @@ function buildNotificationRecipients(deal: Deal): EmailRecipient[] {
   ]);
 }
 
+// Calculates a future date for task scheduling when a valid start date exists.
 function addDays(startDate: string | undefined, daysToAdd: number) {
   if (!startDate) {
     return "TBD";
@@ -97,6 +110,7 @@ function addDays(startDate: string | undefined, daysToAdd: number) {
   return date.toISOString().slice(0, 10);
 }
 
+// Simulates the Outlook step and returns the payload that would be sent.
 export async function mockEmailNotification(
   deal: Deal,
   enrichment: Pick<AIOutput, "kickoffEmail">
@@ -147,16 +161,20 @@ export async function mockEmailNotification(
   };
 }
 
+// Simulates moving the proposal folder into the active-projects area.
 export async function mockSharepointMove(deal: Deal) {
+  const safeClientFolder = sanitizePathSegment(deal.clientName);
+
   return {
     status: "success" as const,
     action: "move",
-    sourceFolder: `/Propostas em Curso/${deal.clientName}`,
-    destinationFolder: `/Projetos Ativos/${deal.clientName}`,
+    sourceFolder: `/Propostas em Curso/${safeClientFolder}`,
+    destinationFolder: `/Projetos Ativos/${safeClientFolder}`,
     message: `Proposal folder moved for ${deal.clientName}.`,
   };
 }
 
+// Simulates creating the ClickUp project, custom fields, and starter tasks.
 export async function mockClickupProject(
   deal: Deal,
   enrichment: Pick<AIOutput, "clickupTasks" | "projectClassification">
@@ -226,6 +244,7 @@ export async function mockClickupProject(
   };
 }
 
+// Simulates provisioning the Teams workspace and kickoff channel.
 export async function mockTeamsChannel(
   deal: Deal,
   enrichment: Pick<AIOutput, "teamsIntroMessage">
@@ -235,8 +254,13 @@ export async function mockTeamsChannel(
     (member) =>
       member.role === "Project Manager" || member.role === "Sales Owner"
   );
+  const safeTeamName = sanitizeDisplayName(
+    `${deal.clientName} Delivery Team`,
+    "Delivery Team"
+  );
+  const safeChannelName = buildChannelSlug(deal.clientName, "kickoff");
   const payload = {
-    displayName: `${deal.clientName} Delivery Team`,
+    displayName: safeTeamName,
     description: `Project workspace for ${deal.dealName} (${deal.clientName}).`,
     visibility: "private" as const,
     owners: owners.map((owner) => ({
@@ -250,7 +274,7 @@ export async function mockTeamsChannel(
     })),
     channels: [
       {
-        displayName: `${deal.clientName.toLowerCase().replaceAll(" ", "-")}-kickoff`,
+        displayName: safeChannelName,
         membershipType: "standard" as const,
         welcomeMessage: enrichment.teamsIntroMessage,
       },
@@ -260,7 +284,7 @@ export async function mockTeamsChannel(
   return {
     status: "success" as const,
     teamName: payload.displayName,
-    channelName: payload.channels[0].displayName,
+    channelName: safeChannelName,
     visibility: payload.visibility,
     members,
     owners,

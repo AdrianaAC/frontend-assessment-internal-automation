@@ -15,6 +15,7 @@ import type {
   WorkflowIntegrationMetadata,
 } from "@/types/workflow";
 
+// Returns the descriptive integration metadata shown alongside each simulated system.
 function buildIntegrationMetadata(
   kind: WorkflowIntegrationKind
 ): WorkflowIntegrationMetadata {
@@ -56,10 +57,12 @@ function buildIntegrationMetadata(
   return catalog[kind];
 }
 
+// Exposes integration metadata to the rest of the workflow.
 export function getIntegrationMetadata(kind: WorkflowIntegrationKind) {
   return buildIntegrationMetadata(kind);
 }
 
+// Prepares the simulated Outlook notification result for this deal.
 export async function prepareEmailNotification(
   deal: Deal,
   enrichment: Pick<AIOutput, "kickoffEmail">
@@ -70,6 +73,7 @@ export async function prepareEmailNotification(
   };
 }
 
+// Prepares the simulated SharePoint move result for this deal.
 export async function moveSharepointFolder(
   deal: Deal
 ): Promise<SharepointResult> {
@@ -79,6 +83,7 @@ export async function moveSharepointFolder(
   };
 }
 
+// Prepares the simulated ClickUp project result for this deal.
 export async function createClickupProject(
   deal: Deal,
   enrichment: Pick<AIOutput, "clickupTasks" | "projectClassification">
@@ -89,6 +94,7 @@ export async function createClickupProject(
   };
 }
 
+// Prepares the simulated Teams provisioning result for this deal.
 export async function provisionTeamsWorkspace(
   deal: Deal,
   enrichment: Pick<AIOutput, "teamsIntroMessage">

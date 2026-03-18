@@ -1,5 +1,12 @@
 import { getOpenAIClient } from "./openai";
 import {
+  getErrorDetails,
+  logError,
+  logInfo,
+  logWarn,
+  type CorrelationContext,
+} from "@/lib/observability/logger";
+import {
   aiOutputJsonSchema,
   extractJSONObject,
   validateAIOutput,
@@ -16,14 +23,7 @@ const AI_SYSTEM_PROMPT = [
   "Do not include markdown fences or commentary.",
 ].join(" ");
 
-function logAIEvent(
-  level: "info" | "warn" | "error",
-  message: string,
-  context: Record<string, unknown>
-) {
-  console[level](`[ai-enrichment] ${message}`, context);
-}
-
+// Builds the user prompt that asks the model to enrich a won deal.
 function createPrompt(deal: Deal) {
   return `
 Prompt version: ${AI_PROMPT_VERSION}
@@ -45,6 +45,7 @@ ${JSON.stringify(deal, null, 2)}
 `;
 }
 
+// Cleans model output so it can be parsed as JSON reliably.
 function normalizeAIResponseContent(content: string) {
   return extractJSONObject(content)
     .replace(/\u2014/g, "-")
@@ -52,6 +53,7 @@ function normalizeAIResponseContent(content: string) {
     .trim();
 }
 
+// Creates a deterministic enrichment payload when live AI is unavailable.
 function buildFallbackOutput(deal: Deal): AIOutput {
   return {
     projectClassification: {
@@ -132,12 +134,38 @@ export type AIEnrichmentResult = {
   failureReason?: string;
 };
 
-export async function runAIEnrichment(deal: Deal): Promise<AIEnrichmentResult> {
+// Collects the tracing details that should travel with AI logs.
+function buildAIContext(
+  deal: Deal,
+  correlation: Partial<CorrelationContext> | undefined
+) {
+  return {
+    correlationId: correlation?.correlationId,
+    route: correlation?.route,
+    workflowRunId: correlation?.workflowRunId,
+    sourceEventId: correlation?.sourceEventId,
+    dealId: deal.dealId,
+    promptVersion: AI_PROMPT_VERSION,
+    model: process.env.OPENAI_MODEL ?? null,
+  };
+}
+
+// Runs AI enrichment with retries and falls back to a safe deterministic payload on failure.
+export async function runAIEnrichment(
+  deal: Deal,
+  correlation?: Partial<CorrelationContext>
+): Promise<AIEnrichmentResult> {
+  const startedAt = Date.now();
+  const baseContext = buildAIContext(deal, correlation);
+
+  logInfo("ai.enrichment.started", baseContext);
+
   if (!process.env.OPENAI_API_KEY || !process.env.OPENAI_MODEL) {
-    logAIEvent("info", "Using deterministic fallback because AI credentials are missing.", {
-      promptVersion: AI_PROMPT_VERSION,
-      dealId: deal.dealId,
-      model: process.env.OPENAI_MODEL ?? null,
+    logInfo("ai.enrichment.fallback", {
+      ...baseContext,
+      durationMs: Date.now() - startedAt,
+      attempts: 0,
+      fallbackReason: "missing_credentials",
     });
     return {
       output: buildFallbackOutput(deal),
@@ -176,11 +204,11 @@ export async function runAIEnrichment(deal: Deal): Promise<AIEnrichmentResult> {
 
       if (!content) {
         lastFailureReason = "empty_response";
-        logAIEvent("warn", "AI response was empty.", {
-          promptVersion: AI_PROMPT_VERSION,
-          dealId: deal.dealId,
-          model: process.env.OPENAI_MODEL,
+        logWarn("ai.enrichment.attempt_failed", {
+          ...baseContext,
           attempt,
+          failureReason: lastFailureReason,
+          durationMs: Date.now() - startedAt,
         });
         continue;
       }
@@ -190,16 +218,14 @@ export async function runAIEnrichment(deal: Deal): Promise<AIEnrichmentResult> {
       try {
         parsedContent = JSON.parse(normalizeAIResponseContent(content)) as unknown;
       } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : "Failed to parse JSON.";
         lastFailureReason = "json_parse_failed";
-        logAIEvent("warn", "AI response could not be parsed as JSON.", {
-          promptVersion: AI_PROMPT_VERSION,
-          dealId: deal.dealId,
-          model: process.env.OPENAI_MODEL,
+        logWarn("ai.enrichment.attempt_failed", {
+          ...baseContext,
           attempt,
-          error: errorMessage,
+          failureReason: lastFailureReason,
+          error: getErrorDetails(error),
           contentPreview: content.slice(0, 300),
+          durationMs: Date.now() - startedAt,
         });
         continue;
       }
@@ -208,21 +234,21 @@ export async function runAIEnrichment(deal: Deal): Promise<AIEnrichmentResult> {
 
       if (!validation.success) {
         lastFailureReason = "schema_validation_failed";
-        logAIEvent("warn", "AI output validation failed.", {
-          promptVersion: AI_PROMPT_VERSION,
-          dealId: deal.dealId,
-          model: process.env.OPENAI_MODEL,
+        logWarn("ai.enrichment.attempt_failed", {
+          ...baseContext,
           attempt,
-          errors: validation.errors,
+          failureReason: lastFailureReason,
+          validationErrors: validation.errors,
+          durationMs: Date.now() - startedAt,
         });
         continue;
       }
 
-      logAIEvent("info", "AI enrichment completed successfully.", {
-        promptVersion: AI_PROMPT_VERSION,
-        dealId: deal.dealId,
-        model: process.env.OPENAI_MODEL,
+      logInfo("ai.enrichment.completed", {
+        ...baseContext,
         attempt,
+        mode: "live",
+        durationMs: Date.now() - startedAt,
       });
 
       return {
@@ -231,25 +257,23 @@ export async function runAIEnrichment(deal: Deal): Promise<AIEnrichmentResult> {
         attempts: attempt,
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown AI request failure.";
       lastFailureReason = "request_failed";
-      logAIEvent("warn", "AI enrichment attempt failed.", {
-        promptVersion: AI_PROMPT_VERSION,
-        dealId: deal.dealId,
-        model: process.env.OPENAI_MODEL,
+      logWarn("ai.enrichment.attempt_failed", {
+        ...baseContext,
         attempt,
-        error: errorMessage,
+        failureReason: lastFailureReason,
+        error: getErrorDetails(error),
+        durationMs: Date.now() - startedAt,
       });
     }
   }
 
-  logAIEvent("error", "Falling back after AI enrichment failure.", {
-    promptVersion: AI_PROMPT_VERSION,
-    dealId: deal.dealId,
-    model: process.env.OPENAI_MODEL,
+  logError("ai.enrichment.fallback", {
+    ...baseContext,
     attempts: AI_MAX_ATTEMPTS,
-    reason: lastFailureReason,
+    mode: "fallback",
+    fallbackReason: lastFailureReason,
+    durationMs: Date.now() - startedAt,
   });
 
   return {
@@ -260,7 +284,11 @@ export async function runAIEnrichment(deal: Deal): Promise<AIEnrichmentResult> {
   };
 }
 
-export async function enrichDealWithAI(deal: Deal): Promise<AIOutput> {
-  const result = await runAIEnrichment(deal);
+// Returns only the AI enrichment output when the caller does not need execution metadata.
+export async function enrichDealWithAI(
+  deal: Deal,
+  correlation?: Partial<CorrelationContext>
+): Promise<AIOutput> {
+  const result = await runAIEnrichment(deal, correlation);
   return result.output;
 }

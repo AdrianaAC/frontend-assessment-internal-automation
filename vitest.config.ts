@@ -5,8 +5,10 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   test: {
+    include: ["src/**/*.test.ts"],
     environment: "node",
     globals: true,
     clearMocks: true,
+    exclude: ["tests/e2e/**", "playwright.config.ts"],
   },
 });

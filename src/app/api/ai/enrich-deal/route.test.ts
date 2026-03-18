@@ -49,6 +49,7 @@ describe("POST /api/ai/enrich-deal", () => {
     const payload = (await response.json()) as ReturnType<typeof createAIOutputFixture>;
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("x-correlation-id")).toBeTruthy();
     expect(enrichDealWithAIMock).toHaveBeenCalledTimes(1);
     expect(payload.projectClassification.projectType).toBe("implementation");
   });

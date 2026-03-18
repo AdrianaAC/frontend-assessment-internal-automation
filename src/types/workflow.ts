@@ -199,3 +199,15 @@ export type WorkflowResponse = {
     teams: TeamsResult;
   };
 };
+
+export type WorkflowRunResponse = WorkflowResponse & {
+  workflowRunId: string;
+};
+
+export type WorkflowRunRecord = {
+  workflowRunId: string;
+  sourceEventId?: string;
+  createdAt: string;
+  updatedAt: string;
+  response: WorkflowResponse;
+};

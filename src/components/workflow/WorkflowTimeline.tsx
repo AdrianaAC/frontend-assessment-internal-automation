@@ -12,24 +12,29 @@ const markerStyles: Record<string, string> = {
   pending: "bg-sky-400",
 };
 
+// Displays the ordered list of workflow steps and how each one ended.
 export default function WorkflowTimeline({ steps }: Props) {
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
+    <div className="glass-panel rounded-[1.75rem] p-6 sm:p-7">
       <div className="mb-6 flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold text-white">Workflow Timeline</h2>
+          <h2 className="text-xl font-semibold tracking-[-0.02em] text-white">
+            Workflow Timeline
+          </h2>
           <p className="mt-1 text-sm text-zinc-400">
             Execution trace for the automation run.
           </p>
         </div>
-        <span className="text-sm text-zinc-500">{steps.length} steps</span>
+        <span className="rounded-full border border-zinc-800 bg-zinc-950/60 px-3 py-1 text-xs uppercase tracking-[0.22em] text-zinc-500">
+          {steps.length} steps
+        </span>
       </div>
 
       <ol className="space-y-4">
         {steps.map((step, index) => (
           <li
             key={`${step.title}-${index}`}
-            className="flex gap-4 rounded-xl border border-zinc-800 bg-zinc-950 p-4"
+            className="flex gap-4 rounded-2xl border border-zinc-800/90 bg-zinc-950/75 p-4 shadow-[0_14px_34px_rgba(2,8,12,0.24)]"
           >
             <div className="flex flex-col items-center">
               <span
@@ -38,7 +43,7 @@ export default function WorkflowTimeline({ steps }: Props) {
                 }`}
               />
               {index < steps.length - 1 ? (
-                <span className="mt-2 h-full w-px bg-zinc-800" />
+                <span className="mt-2 h-full w-px bg-gradient-to-b from-zinc-700 via-zinc-800 to-transparent" />
               ) : null}
             </div>
 
@@ -50,10 +55,16 @@ export default function WorkflowTimeline({ steps }: Props) {
               <p className="mt-2 text-sm leading-6 text-zinc-400">
                 {step.description}
               </p>
-              <div className="mt-3 flex flex-wrap gap-3 text-xs text-zinc-500">
-                <span>{step.durationMs} ms</span>
-                <span>{step.attempts} attempt(s)</span>
-                <span>{step.retryable ? "retryable" : "not retryable"}</span>
+              <div className="mt-4 flex flex-wrap gap-2 text-xs text-zinc-400">
+                <span className="rounded-full border border-zinc-800 bg-zinc-900/80 px-2.5 py-1">
+                  {step.durationMs} ms
+                </span>
+                <span className="rounded-full border border-zinc-800 bg-zinc-900/80 px-2.5 py-1">
+                  {step.attempts} attempt(s)
+                </span>
+                <span className="rounded-full border border-zinc-800 bg-zinc-900/80 px-2.5 py-1">
+                  {step.retryable ? "retryable" : "not retryable"}
+                </span>
                 <span>
                   {step.approvalRequired
                     ? "approval required"
