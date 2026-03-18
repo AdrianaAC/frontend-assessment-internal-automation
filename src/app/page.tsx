@@ -1,65 +1,140 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useState } from "react";
+import DealInputForm from "@/components/workflow/DealInputForm";
+import WorkflowResult from "@/components/workflow/WorkflowResult";
+import type { WorkflowRunResponse } from "@/types/workflow";
+
+// Renders the main workflow demo and coordinates approval actions from the browser.
+export default function HomePage() {
+  const [result, setResult] = useState<WorkflowRunResponse | null>(null);
+  const [approvalError, setApprovalError] = useState<string | null>(null);
+  const [approving, setApproving] = useState(false);
+
+  // Sends the human approval decision back to the server to resume the workflow.
+  async function handleApprove(approval: {
+    approvedBy: string;
+    notes?: string;
+  }) {
+    if (!result) {
+      return;
+    }
+
+    try {
+      setApproving(true);
+      setApprovalError(null);
+
+      const response = await fetch("/api/workflow/resume", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          workflowRunId: result.workflowRunId,
+          approval,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | {
+            error?: string;
+          }
+        | WorkflowRunResponse
+        | null;
+
+      if (!response.ok) {
+        setApprovalError(
+          payload && "error" in payload && payload.error
+            ? payload.error
+            : "Failed to resume workflow."
+        );
+        return;
+      }
+
+      setResult(payload as WorkflowRunResponse);
+    } catch (error) {
+      console.error(error);
+      setApprovalError("Failed to resume workflow.");
+    } finally {
+      setApproving(false);
+    }
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+    <main className="app-shell min-h-screen px-4 py-6 text-zinc-100 sm:px-6 sm:py-10">
+      <div className="mx-auto max-w-7xl space-y-8">
+        <header className="hero-glow glass-panel section-fade-in rounded-[2rem] px-6 py-8 sm:px-8 sm:py-10">
+          <div className="relative z-10 grid gap-8 xl:grid-cols-[1.2fr_0.8fr] xl:items-end">
+            <div className="space-y-5">
+              <div className="flex flex-wrap gap-3">
+                <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-amber-200">
+                  Automation Control Room
+                </span>
+                <span className="rounded-full border border-teal-400/30 bg-teal-400/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-teal-200">
+                  AI-Enabled Workflow
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-sm uppercase tracking-[0.28em] text-zinc-500">
+                  Internal Delivery Activation
+                </p>
+                <h1 className="max-w-4xl text-4xl font-semibold leading-tight text-white sm:text-5xl">
+                  Won Deal to Kickoff, framed like an operations cockpit instead
+                  of a demo form.
+                </h1>
+                <p className="max-w-3xl text-base leading-7 text-zinc-300 sm:text-lg">
+                  Trigger the post-sale workflow, review AI classification, gate
+                  risky runs with approval, and inspect every downstream payload
+                  across Outlook, SharePoint, ClickUp, and Teams.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+              <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/60 p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+                  Intake
+                </p>
+                <p className="mt-2 text-sm text-zinc-200">
+                  Simulated Pipedrive won-deal webhook with strict validation.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/60 p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+                  Decisioning
+                </p>
+                <p className="mt-2 text-sm text-zinc-200">
+                  AI enrichment with fallback, observability, and approval gates.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/60 p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+                  Provisioning
+                </p>
+                <p className="mt-2 text-sm text-zinc-200">
+                  Payload-ready simulations for delivery systems and comms.
+                </p>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <section className="section-fade-in">
+          <DealInputForm onResult={setResult} />
+        </section>
+
+        {result ? (
+          <section className="section-fade-in">
+            <WorkflowResult
+              result={result}
+              onApprove={handleApprove}
+              approving={approving}
+              approvalError={approvalError}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+          </section>
+        ) : null}
+      </div>
+    </main>
   );
 }

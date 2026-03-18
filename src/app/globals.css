@@ -1,26 +1,168 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --font-sans: "Space Grotesk", sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+  --bg-ink: #07111a;
+  --bg-deep: #0d1b26;
+  --surface: rgba(10, 20, 29, 0.78);
+  --surface-strong: rgba(12, 24, 35, 0.92);
+  --surface-muted: rgba(14, 26, 38, 0.68);
+  --border-soft: rgba(148, 163, 184, 0.18);
+  --border-strong: rgba(245, 158, 11, 0.22);
+  --text-main: #edf4f7;
+  --text-muted: #9fb0bc;
+  --text-faint: #6b7e8e;
+  --accent: #f3a53b;
+  --accent-soft: rgba(243, 165, 59, 0.16);
+  --accent-cool: #4fd1c5;
+  --accent-cool-soft: rgba(79, 209, 197, 0.14);
+  --danger-soft: rgba(244, 114, 182, 0.16);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+html,
+body {
+  margin: 0;
+  padding: 0;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background:
+    radial-gradient(circle at top left, rgba(79, 209, 197, 0.12), transparent 28%),
+    radial-gradient(circle at top right, rgba(243, 165, 59, 0.14), transparent 24%),
+    linear-gradient(180deg, #07111a 0%, #0a1520 46%, #091018 100%);
+  color: var(--text-main);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+  font-family: var(--font-sans);
+  color: var(--text-main);
+  background:
+    radial-gradient(circle at 15% 15%, rgba(79, 209, 197, 0.08), transparent 18%),
+    radial-gradient(circle at 85% 12%, rgba(243, 165, 59, 0.12), transparent 20%),
+    linear-gradient(180deg, rgba(7, 17, 26, 0.96), rgba(9, 16, 24, 0.98));
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(159, 176, 188, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(159, 176, 188, 0.04) 1px, transparent 1px);
+  background-size: 80px 80px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.75), transparent 88%);
+  opacity: 0.55;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(243, 165, 59, 0.1), transparent 28%),
+    radial-gradient(circle at 0% 100%, rgba(79, 209, 197, 0.08), transparent 20%);
+  filter: blur(24px);
+  opacity: 0.8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a,
+button,
+input,
+select,
+textarea,
+summary {
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+pre,
+code,
+kbd,
+samp {
+  font-family: var(--font-mono);
+}
+
+.app-shell {
+  position: relative;
+  z-index: 1;
+}
+
+.glass-panel {
+  background:
+    linear-gradient(180deg, rgba(16, 30, 43, 0.88), rgba(10, 20, 29, 0.78)),
+    var(--surface);
+  border: 1px solid var(--border-soft);
+  box-shadow:
+    0 24px 60px rgba(3, 8, 12, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(18px);
+}
+
+.hero-glow {
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-glow::before {
+  content: "";
+  position: absolute;
+  inset: -30% auto auto -10%;
+  width: 18rem;
+  height: 18rem;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(79, 209, 197, 0.16), transparent 68%);
+  filter: blur(8px);
+  pointer-events: none;
+}
+
+.hero-glow::after {
+  content: "";
+  position: absolute;
+  inset: auto -8% -25% auto;
+  width: 20rem;
+  height: 20rem;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(243, 165, 59, 0.16), transparent 72%);
+  filter: blur(12px);
+  pointer-events: none;
+}
+
+.section-fade-in {
+  animation: section-fade-in 480ms ease both;
+}
+
+@keyframes section-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
