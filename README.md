@@ -46,15 +46,14 @@ https://frontend-assessment-internal-automa.vercel.app/
 
 ![Demo Placeholder](./docs/demo.gif)
 
-Replace this placeholder with a short GIF demonstrating the workflow execution.
-
 ---
 
 # Application Interface
 
-![Application Interface](./docs/app-interface.png)
+![Application Interface Intro](./docs/interface1.png)
+![Application Interface Automatization](./docs/interface2.png)
+![Application Interface Results](./docs/interface3.png)
 
-Replace this placeholder with a screenshot of the main interface.
 
 ---
 
@@ -78,7 +77,6 @@ Main flow:
 
 ![Workflow Diagram](./docs/workflow-diagram.png)
 
-Export the diagram as PNG or SVG and place it in `/docs/workflow-diagram.png`.
 
 ---
 
