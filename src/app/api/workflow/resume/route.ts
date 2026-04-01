@@ -46,13 +46,14 @@ export async function POST(request: Request) {
     }
 
     const workflowRun = await getWorkflowRun(validation.data.workflowRunId);
+    const workflowState = workflowRun?.response ?? validation.data.workflow;
     const requestContext = {
       ...correlation,
       workflowRunId: validation.data.workflowRunId,
       sourceEventId: workflowRun?.sourceEventId,
     };
 
-    if (!workflowRun) {
+    if (!workflowState) {
       logWarn("api.request.not_found", {
         ...requestContext,
         durationMs: Date.now() - startedAt,
@@ -65,11 +66,11 @@ export async function POST(request: Request) {
       );
     }
 
-    if (workflowRun.response.approval.status !== "pending") {
+    if (workflowState.approval.status !== "pending") {
       logWarn("api.request.conflict", {
         ...requestContext,
         durationMs: Date.now() - startedAt,
-        approvalStatus: workflowRun.response.approval.status,
+        approvalStatus: workflowState.approval.status,
       });
 
       return createJsonResponse(
@@ -79,18 +80,17 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await processDeal(workflowRun.response.deal, {
-      enrichmentContext: workflowRun.response.enrichmentContext,
-      enrichmentOverride: workflowRun.response.enrichment,
+    const result = await processDeal(workflowState.deal, {
+      enrichmentContext: workflowState.enrichmentContext,
+      enrichmentOverride: workflowState.enrichment,
       approvalDecision: validation.data.approval,
       observability: requestContext,
     });
-    const updatedWorkflowRun = await updateWorkflowRun(
-      validation.data.workflowRunId,
-      result
-    );
+    const updatedWorkflowRun = workflowRun
+      ? await updateWorkflowRun(validation.data.workflowRunId, result)
+      : null;
 
-    if (!updatedWorkflowRun) {
+    if (workflowRun && !updatedWorkflowRun) {
       logWarn("api.request.not_found", {
         ...requestContext,
         durationMs: Date.now() - startedAt,
@@ -111,7 +111,12 @@ export async function POST(request: Request) {
     });
 
     return createJsonResponse(
-      toWorkflowRunResponse(updatedWorkflowRun),
+      updatedWorkflowRun
+        ? toWorkflowRunResponse(updatedWorkflowRun)
+        : {
+            workflowRunId: validation.data.workflowRunId,
+            ...result,
+          },
       { status: 200 },
       correlation.correlationId
     );

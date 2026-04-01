@@ -159,4 +159,63 @@ describe("POST /api/workflow/resume", () => {
     expect(payload.error).toBe("Workflow run was not found.");
     expect(processDealMock).not.toHaveBeenCalled();
   });
+
+  it("resumes from the client workflow snapshot when persisted state is unavailable", async () => {
+    vi.resetModules();
+    getWorkflowRunMock.mockResolvedValue(null);
+    processDealMock.mockResolvedValue(createWorkflowResponseFixture());
+    const { POST } = await import("@/app/api/workflow/resume/route");
+    const workflow = createWorkflowRunResponseFixture({
+      approval: {
+        status: "pending",
+        stage: "pre-provisioning",
+        reason: "AI enrichment fell back to deterministic output",
+      },
+      enrichmentContext: {
+        mode: "fallback",
+        attempts: 2,
+        failureReason: "json_parse_failed",
+      },
+    });
+
+    const response = await POST(
+      new Request("http://localhost/api/workflow/resume", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          workflowRunId: "run-001",
+          approval: {
+            approvedBy: "Operations Lead",
+            notes: "Reviewed and approved.",
+          },
+          workflow,
+        }),
+      })
+    );
+    const payload = (await response.json()) as ReturnType<
+      typeof createWorkflowRunResponseFixture
+    >;
+
+    expect(response.status).toBe(200);
+    expect(processDealMock).toHaveBeenCalledWith(createDealFixture(), {
+      enrichmentContext: {
+        mode: "fallback",
+        attempts: 2,
+        failureReason: "json_parse_failed",
+      },
+      enrichmentOverride: createAIOutputFixture(),
+      approvalDecision: {
+        approvedBy: "Operations Lead",
+        notes: "Reviewed and approved.",
+      },
+      observability: expect.objectContaining({
+        route: "/api/workflow/resume",
+        workflowRunId: "run-001",
+      }),
+    });
+    expect(updateWorkflowRunMock).not.toHaveBeenCalled();
+    expect(payload.workflowRunId).toBe("run-001");
+  });
 });

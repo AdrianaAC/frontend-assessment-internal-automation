@@ -32,6 +32,7 @@ export default function HomePage() {
         body: JSON.stringify({
           workflowRunId: result.workflowRunId,
           approval,
+          workflow: result,
         }),
       });
 

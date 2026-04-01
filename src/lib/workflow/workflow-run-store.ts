@@ -18,6 +18,10 @@ const DEFAULT_STORE_FILE = path.join(
 );
 
 let storeLock = Promise.resolve();
+let prefersInMemoryStore = false;
+const inMemoryStore: WorkflowRunStoreData = {
+  runs: {},
+};
 
 // Chooses the file used to persist workflow runs between requests.
 function getStoreFilePath() {
@@ -34,6 +38,27 @@ function isENOENT(error: unknown) {
   );
 }
 
+// Detects filesystem errors that should trigger the serverless-safe memory fallback.
+function isReadonlyFilesystemError(error: unknown) {
+  if (typeof error !== "object" || error === null) {
+    return false;
+  }
+
+  const code =
+    "code" in error && typeof error.code === "string" ? error.code : undefined;
+  const message =
+    "message" in error && typeof error.message === "string"
+      ? error.message.toLowerCase()
+      : "";
+
+  return (
+    code === "EROFS" ||
+    code === "EPERM" ||
+    code === "EACCES" ||
+    message.includes("read-only file system")
+  );
+}
+
 // Makes sure the storage folder exists before writing workflow data.
 async function ensureStoreDirectory(filePath: string) {
   await mkdir(path.dirname(filePath), { recursive: true });
@@ -41,6 +66,10 @@ async function ensureStoreDirectory(filePath: string) {
 
 // Loads all saved workflow runs from disk.
 async function readStoreData(): Promise<WorkflowRunStoreData> {
+  if (prefersInMemoryStore) {
+    return inMemoryStore;
+  }
+
   const filePath = getStoreFilePath();
 
   try {
@@ -63,12 +92,26 @@ async function readStoreData(): Promise<WorkflowRunStoreData> {
 
 // Writes the latest workflow-run snapshot to disk safely.
 async function writeStoreData(data: WorkflowRunStoreData) {
+  if (prefersInMemoryStore) {
+    inMemoryStore.runs = data.runs;
+    return;
+  }
+
   const filePath = getStoreFilePath();
   const tempFilePath = `${filePath}.tmp`;
 
-  await ensureStoreDirectory(filePath);
-  await writeFile(tempFilePath, JSON.stringify(data, null, 2), "utf8");
-  await rename(tempFilePath, filePath);
+  try {
+    await ensureStoreDirectory(filePath);
+    await writeFile(tempFilePath, JSON.stringify(data, null, 2), "utf8");
+    await rename(tempFilePath, filePath);
+  } catch (error) {
+    if (!isReadonlyFilesystemError(error)) {
+      throw error;
+    }
+
+    prefersInMemoryStore = true;
+    inMemoryStore.runs = data.runs;
+  }
 }
 
 // Serializes file access so concurrent requests do not corrupt the store.

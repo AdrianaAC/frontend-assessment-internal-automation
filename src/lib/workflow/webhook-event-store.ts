@@ -37,6 +37,10 @@ const DEFAULT_STORE_FILE = path.join(
 const DEFAULT_PROCESSING_TTL_MS = 5 * 60 * 1000;
 
 let storeLock = Promise.resolve();
+let prefersInMemoryStore = false;
+const inMemoryStore: WebhookEventStoreData = {
+  events: {},
+};
 
 // Chooses the file used to persist webhook idempotency state.
 function getStoreFilePath() {
@@ -64,6 +68,27 @@ function isENOENT(error: unknown) {
   );
 }
 
+// Detects filesystem errors that should trigger the serverless-safe memory fallback.
+function isReadonlyFilesystemError(error: unknown) {
+  if (typeof error !== "object" || error === null) {
+    return false;
+  }
+
+  const code =
+    "code" in error && typeof error.code === "string" ? error.code : undefined;
+  const message =
+    "message" in error && typeof error.message === "string"
+      ? error.message.toLowerCase()
+      : "";
+
+  return (
+    code === "EROFS" ||
+    code === "EPERM" ||
+    code === "EACCES" ||
+    message.includes("read-only file system")
+  );
+}
+
 // Identifies a webhook record that has been stuck in processing for too long.
 function isStaleProcessingRecord(record: WebhookEventRecord) {
   if (record.status !== "processing") {
@@ -86,6 +111,10 @@ async function ensureStoreDirectory(filePath: string) {
 
 // Loads all saved webhook events from disk.
 async function readStoreData(): Promise<WebhookEventStoreData> {
+  if (prefersInMemoryStore) {
+    return inMemoryStore;
+  }
+
   const filePath = getStoreFilePath();
 
   try {
@@ -108,12 +137,26 @@ async function readStoreData(): Promise<WebhookEventStoreData> {
 
 // Writes the latest webhook-event snapshot to disk safely.
 async function writeStoreData(data: WebhookEventStoreData) {
+  if (prefersInMemoryStore) {
+    inMemoryStore.events = data.events;
+    return;
+  }
+
   const filePath = getStoreFilePath();
   const tempFilePath = `${filePath}.tmp`;
 
-  await ensureStoreDirectory(filePath);
-  await writeFile(tempFilePath, JSON.stringify(data, null, 2), "utf8");
-  await rename(tempFilePath, filePath);
+  try {
+    await ensureStoreDirectory(filePath);
+    await writeFile(tempFilePath, JSON.stringify(data, null, 2), "utf8");
+    await rename(tempFilePath, filePath);
+  } catch (error) {
+    if (!isReadonlyFilesystemError(error)) {
+      throw error;
+    }
+
+    prefersInMemoryStore = true;
+    inMemoryStore.events = data.events;
+  }
 }
 
 // Serializes file access so concurrent webhook requests do not corrupt the store.

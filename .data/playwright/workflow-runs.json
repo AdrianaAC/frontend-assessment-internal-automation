@@ -1,0 +1,538 @@
+{
+  "runs": {
+    "58fead25-0605-4f69-8854-8472d2521f85": {
+      "workflowRunId": "58fead25-0605-4f69-8854-8472d2521f85",
+      "sourceEventId": "DEAL-001:won:2026-03-18T00:05:23.349Z",
+      "createdAt": "2026-03-18T00:05:24.468Z",
+      "updatedAt": "2026-03-18T00:05:26.389Z",
+      "response": {
+        "deal": {
+          "dealId": "DEAL-001",
+          "dealName": "Digital Transformation Kickoff",
+          "clientName": "Acme Industries",
+          "value": 25000,
+          "currency": "EUR",
+          "ownerName": "Sales Owner",
+          "ownerEmail": "sales@company.com",
+          "financeName": "Finance Partner",
+          "financeEmail": "finance@company.com",
+          "projectManagerName": "Project Manager",
+          "projectManagerEmail": "pm@company.com",
+          "sponsorName": "Executive Sponsor",
+          "sponsorEmail": "sponsor@company.com",
+          "consultantName": "Consultant",
+          "consultantEmail": "consultant@company.com",
+          "juniorConsultantName": "Junior Consultant",
+          "juniorConsultantEmail": "junior@company.com",
+          "serviceType": "implementation",
+          "startDate": "2026-03-20",
+          "notes": "Client wants a fast kickoff and weekly reporting."
+        },
+        "enrichment": {
+          "projectClassification": {
+            "projectType": "implementation",
+            "complexity": "high",
+            "riskLevel": "medium",
+            "recommendedTemplate": "Implementation Kickoff Template"
+          },
+          "kickoffEmail": {
+            "subject": "Kickoff | Acme Industries | Digital Transformation Kickoff",
+            "body": "Hello team,\n\nA new deal has been marked as won.\n\nClient: Acme Industries\nProject: Digital Transformation Kickoff\nValue: 25000 EUR\nSales Owner: Sales Owner\nProject Manager: Project Manager\nFinance Contact: Finance Partner\nStart Date: 2026-03-20\n\nNext steps:\n- Prepare SharePoint structure\n- Create ClickUp project\n- Add project team to Teams\n- Schedule kickoff meeting\n\nNotes:\nClient wants a fast kickoff and weekly reporting.\n\nBest regards,\nAutomation Bot"
+          },
+          "teamsIntroMessage": "Welcome everyone - this project for Acme Industries is now starting.\n\nTeam:\n- Sales Owner: Sales Owner\n- Sponsor: Executive Sponsor\n- Project Manager: Project Manager\n- Consultant: Consultant\n- Junior Consultant: Junior Consultant\n\nMain focus:\nClient wants a fast kickoff and weekly reporting.\n\nLet's use this channel for kickoff coordination and early project alignment.",
+          "clickupTasks": [
+            {
+              "title": "Create kickoff meeting",
+              "description": "Schedule the internal and client kickoff sessions.",
+              "owner": "Project Manager",
+              "priority": "high"
+            },
+            {
+              "title": "Prepare SharePoint workspace",
+              "description": "Move proposal folder to active projects and validate structure.",
+              "owner": "Consultant",
+              "priority": "high"
+            },
+            {
+              "title": "Confirm project staffing",
+              "description": "Validate sponsor, PM, finance, consultant, and junior consultant allocation.",
+              "owner": "Sales Owner",
+              "priority": "medium"
+            }
+          ]
+        },
+        "enrichmentContext": {
+          "mode": "fallback",
+          "attempts": 0,
+          "failureReason": "missing_credentials"
+        },
+        "approval": {
+          "status": "approved",
+          "stage": "pre-provisioning",
+          "reason": "AI enrichment fell back to deterministic output",
+          "approvedBy": "Operations Lead",
+          "approvedAt": "2026-03-18T00:05:26.353Z",
+          "notes": "Reviewed in browser flow."
+        },
+        "execution": {
+          "status": "warning",
+          "totalDurationMs": 6,
+          "steps": [
+            {
+              "id": "deal-received",
+              "title": "Deal Received",
+              "status": "success",
+              "description": "The won deal \"Digital Transformation Kickoff\" for Acme Industries entered the automation workflow.",
+              "durationMs": 0,
+              "attempts": 1,
+              "retryable": false,
+              "approvalRequired": false,
+              "continuedAfterFailure": false
+            },
+            {
+              "id": "ai-enrichment",
+              "title": "AI Enrichment",
+              "status": "warning",
+              "description": "AI enrichment fell back to deterministic output after 0 attempt(s). Reason: missing_credentials.",
+              "durationMs": 0,
+              "attempts": 0,
+              "retryable": true,
+              "approvalRequired": true,
+              "continuedAfterFailure": true,
+              "errorMessage": "missing_credentials"
+            },
+            {
+              "id": "human-approval",
+              "title": "Human Approval",
+              "status": "success",
+              "description": "Workflow resumed by Operations Lead.",
+              "durationMs": 0,
+              "attempts": 1,
+              "retryable": false,
+              "approvalRequired": false,
+              "continuedAfterFailure": false
+            },
+            {
+              "id": "email-notification",
+              "title": "Email Notification",
+              "status": "success",
+              "description": "Kickoff notification prepared for Sales Owner <sales@company.com>, Project Manager <pm@company.com>, Finance Partner <finance@company.com>, Executive Sponsor <sponsor@company.com>, Consultant <consultant@company.com>, Junior Consultant <junior@company.com>.",
+              "durationMs": 3,
+              "attempts": 1,
+              "retryable": true,
+              "approvalRequired": false,
+              "continuedAfterFailure": true
+            },
+            {
+              "id": "sharepoint-setup",
+              "title": "SharePoint Setup",
+              "status": "success",
+              "description": "Proposal folder moved for Acme Industries.",
+              "durationMs": 2,
+              "attempts": 1,
+              "retryable": true,
+              "approvalRequired": false,
+              "continuedAfterFailure": true
+            },
+            {
+              "id": "clickup-project-creation",
+              "title": "ClickUp Project Creation",
+              "status": "success",
+              "description": "ClickUp project created for Acme Industries with 3 starter tasks and 5 mapped fields.",
+              "durationMs": 2,
+              "attempts": 1,
+              "retryable": true,
+              "approvalRequired": false,
+              "continuedAfterFailure": true
+            },
+            {
+              "id": "teams-channel-provisioning",
+              "title": "Teams Channel Provisioning",
+              "status": "success",
+              "description": "Teams workspace provisioned with 5 members and kickoff channel seeded with the AI-generated intro message.",
+              "durationMs": 1,
+              "attempts": 1,
+              "retryable": true,
+              "approvalRequired": false,
+              "continuedAfterFailure": true
+            }
+          ]
+        },
+        "systems": {
+          "email": {
+            "status": "success",
+            "provider": "Office365 / Outlook",
+            "recipients": [
+              {
+                "name": "Sales Owner",
+                "address": "sales@company.com",
+                "role": "Sales Owner"
+              },
+              {
+                "name": "Project Manager",
+                "address": "pm@company.com",
+                "role": "Project Manager"
+              },
+              {
+                "name": "Finance Partner",
+                "address": "finance@company.com",
+                "role": "Finance"
+              },
+              {
+                "name": "Executive Sponsor",
+                "address": "sponsor@company.com",
+                "role": "Sponsor"
+              },
+              {
+                "name": "Consultant",
+                "address": "consultant@company.com",
+                "role": "Consultant"
+              },
+              {
+                "name": "Junior Consultant",
+                "address": "junior@company.com",
+                "role": "Junior Consultant"
+              }
+            ],
+            "subject": "Kickoff | Acme Industries | Digital Transformation Kickoff",
+            "bodyPreview": "Hello team,\n\nA new deal has been marked as won.\n\nClient: Acme Industries\nProject: Digital Transformation Kickoff\nValue: 25000 EUR\nSales Owner: Sales Owner\nProject Manager: Project Manager\nFinance Contact: Finance Partner\nStart Date: 2026-03-20\n\nNext steps:\n- Prepare SharePoint structure\n- Create ClickUp project\n- Add project team to Teams\n- Schedule kickoff meeting\n\nNotes:\nClient wants a fast kickoff and weekly reporting.\n\nBest regards,\nAutomation Bot",
+            "payload": {
+              "message": {
+                "subject": "Kickoff | Acme Industries | Digital Transformation Kickoff",
+                "body": {
+                  "contentType": "Text",
+                  "content": "Hello team,\n\nA new deal has been marked as won.\n\nClient: Acme Industries\nProject: Digital Transformation Kickoff\nValue: 25000 EUR\nSales Owner: Sales Owner\nProject Manager: Project Manager\nFinance Contact: Finance Partner\nStart Date: 2026-03-20\n\nNext steps:\n- Prepare SharePoint structure\n- Create ClickUp project\n- Add project team to Teams\n- Schedule kickoff meeting\n\nNotes:\nClient wants a fast kickoff and weekly reporting.\n\nBest regards,\nAutomation Bot"
+                },
+                "toRecipients": [
+                  {
+                    "emailAddress": {
+                      "name": "Sales Owner",
+                      "address": "sales@company.com"
+                    }
+                  }
+                ],
+                "ccRecipients": [
+                  {
+                    "emailAddress": {
+                      "name": "Project Manager",
+                      "address": "pm@company.com"
+                    }
+                  },
+                  {
+                    "emailAddress": {
+                      "name": "Finance Partner",
+                      "address": "finance@company.com"
+                    }
+                  },
+                  {
+                    "emailAddress": {
+                      "name": "Executive Sponsor",
+                      "address": "sponsor@company.com"
+                    }
+                  },
+                  {
+                    "emailAddress": {
+                      "name": "Consultant",
+                      "address": "consultant@company.com"
+                    }
+                  },
+                  {
+                    "emailAddress": {
+                      "name": "Junior Consultant",
+                      "address": "junior@company.com"
+                    }
+                  }
+                ],
+                "importance": "normal"
+              },
+              "saveToSentItems": true
+            },
+            "message": "Kickoff notification prepared for Sales Owner <sales@company.com>, Project Manager <pm@company.com>, Finance Partner <finance@company.com>, Executive Sponsor <sponsor@company.com>, Consultant <consultant@company.com>, Junior Consultant <junior@company.com>.",
+            "integration": {
+              "kind": "email",
+              "mode": "mock",
+              "implementation": "simulated",
+              "provider": "Office365 / Outlook",
+              "liveEquivalent": "Microsoft Graph sendMail",
+              "note": "Simulated payload only. No live email was sent."
+            }
+          },
+          "sharepoint": {
+            "status": "success",
+            "action": "move",
+            "sourceFolder": "/Propostas em Curso/Acme Industries",
+            "destinationFolder": "/Projetos Ativos/Acme Industries",
+            "message": "Proposal folder moved for Acme Industries.",
+            "integration": {
+              "kind": "sharepoint",
+              "mode": "mock",
+              "implementation": "simulated",
+              "provider": "SharePoint Online",
+              "liveEquivalent": "Microsoft Graph / SharePoint REST",
+              "note": "Simulated folder move only. No live document operation was executed."
+            }
+          },
+          "clickup": {
+            "status": "success",
+            "projectName": "Acme Industries - Digital Transformation Kickoff",
+            "space": "Operations",
+            "folder": "Active Projects",
+            "owner": "Project Manager",
+            "startDate": "2026-03-20",
+            "value": "25000 EUR",
+            "tags": [
+              "implementation",
+              "high",
+              "medium"
+            ],
+            "customFields": [
+              {
+                "name": "Client",
+                "value": "Acme Industries"
+              },
+              {
+                "name": "Deal Value",
+                "value": "25000 EUR"
+              },
+              {
+                "name": "Project Manager",
+                "value": "Project Manager"
+              },
+              {
+                "name": "Sponsor",
+                "value": "Executive Sponsor"
+              },
+              {
+                "name": "Template",
+                "value": "Implementation Kickoff Template"
+              }
+            ],
+            "tasks": [
+              {
+                "title": "Create kickoff meeting",
+                "description": "Schedule the internal and client kickoff sessions.",
+                "owner": "Project Manager",
+                "priority": "high",
+                "startDate": "2026-03-20",
+                "dueDate": "2026-03-22",
+                "tags": [
+                  "implementation",
+                  "high"
+                ]
+              },
+              {
+                "title": "Prepare SharePoint workspace",
+                "description": "Move proposal folder to active projects and validate structure.",
+                "owner": "Consultant",
+                "priority": "high",
+                "startDate": "2026-03-20",
+                "dueDate": "2026-03-23",
+                "tags": [
+                  "implementation",
+                  "high"
+                ]
+              },
+              {
+                "title": "Confirm project staffing",
+                "description": "Validate sponsor, PM, finance, consultant, and junior consultant allocation.",
+                "owner": "Sales Owner",
+                "priority": "medium",
+                "startDate": "2026-03-20",
+                "dueDate": "2026-03-24",
+                "tags": [
+                  "implementation",
+                  "medium"
+                ]
+              }
+            ],
+            "payload": {
+              "name": "Acme Industries - Digital Transformation Kickoff",
+              "space": "Operations",
+              "folder": "Active Projects",
+              "owner": "Project Manager",
+              "startDate": "2026-03-20",
+              "tags": [
+                "implementation",
+                "high",
+                "medium"
+              ],
+              "customFields": [
+                {
+                  "name": "Client",
+                  "value": "Acme Industries"
+                },
+                {
+                  "name": "Deal Value",
+                  "value": "25000 EUR"
+                },
+                {
+                  "name": "Project Manager",
+                  "value": "Project Manager"
+                },
+                {
+                  "name": "Sponsor",
+                  "value": "Executive Sponsor"
+                },
+                {
+                  "name": "Template",
+                  "value": "Implementation Kickoff Template"
+                }
+              ],
+              "tasks": [
+                {
+                  "title": "Create kickoff meeting",
+                  "description": "Schedule the internal and client kickoff sessions.",
+                  "owner": "Project Manager",
+                  "priority": "high",
+                  "startDate": "2026-03-20",
+                  "dueDate": "2026-03-22",
+                  "tags": [
+                    "implementation",
+                    "high"
+                  ]
+                },
+                {
+                  "title": "Prepare SharePoint workspace",
+                  "description": "Move proposal folder to active projects and validate structure.",
+                  "owner": "Consultant",
+                  "priority": "high",
+                  "startDate": "2026-03-20",
+                  "dueDate": "2026-03-23",
+                  "tags": [
+                    "implementation",
+                    "high"
+                  ]
+                },
+                {
+                  "title": "Confirm project staffing",
+                  "description": "Validate sponsor, PM, finance, consultant, and junior consultant allocation.",
+                  "owner": "Sales Owner",
+                  "priority": "medium",
+                  "startDate": "2026-03-20",
+                  "dueDate": "2026-03-24",
+                  "tags": [
+                    "implementation",
+                    "medium"
+                  ]
+                }
+              ]
+            },
+            "message": "ClickUp project created for Acme Industries with 3 starter tasks and 5 mapped fields.",
+            "integration": {
+              "kind": "clickup",
+              "mode": "mock",
+              "implementation": "simulated",
+              "provider": "ClickUp",
+              "liveEquivalent": "ClickUp API",
+              "note": "Simulated project provisioning only. No live ClickUp resources were created."
+            }
+          },
+          "teams": {
+            "status": "success",
+            "teamName": "Acme Industries Delivery Team",
+            "channelName": "acme-industries-kickoff",
+            "visibility": "private",
+            "members": [
+              {
+                "name": "Sales Owner",
+                "address": "sales@company.com",
+                "role": "Sales Owner"
+              },
+              {
+                "name": "Project Manager",
+                "address": "pm@company.com",
+                "role": "Project Manager"
+              },
+              {
+                "name": "Executive Sponsor",
+                "address": "sponsor@company.com",
+                "role": "Sponsor"
+              },
+              {
+                "name": "Consultant",
+                "address": "consultant@company.com",
+                "role": "Consultant"
+              },
+              {
+                "name": "Junior Consultant",
+                "address": "junior@company.com",
+                "role": "Junior Consultant"
+              }
+            ],
+            "owners": [
+              {
+                "name": "Sales Owner",
+                "address": "sales@company.com",
+                "role": "Sales Owner"
+              },
+              {
+                "name": "Project Manager",
+                "address": "pm@company.com",
+                "role": "Project Manager"
+              }
+            ],
+            "welcomeMessage": "Welcome everyone - this project for Acme Industries is now starting.\n\nTeam:\n- Sales Owner: Sales Owner\n- Sponsor: Executive Sponsor\n- Project Manager: Project Manager\n- Consultant: Consultant\n- Junior Consultant: Junior Consultant\n\nMain focus:\nClient wants a fast kickoff and weekly reporting.\n\nLet's use this channel for kickoff coordination and early project alignment.",
+            "payload": {
+              "displayName": "Acme Industries Delivery Team",
+              "description": "Project workspace for Digital Transformation Kickoff (Acme Industries).",
+              "visibility": "private",
+              "owners": [
+                {
+                  "userPrincipalName": "sales@company.com",
+                  "displayName": "Sales Owner"
+                },
+                {
+                  "userPrincipalName": "pm@company.com",
+                  "displayName": "Project Manager"
+                }
+              ],
+              "members": [
+                {
+                  "userPrincipalName": "sales@company.com",
+                  "displayName": "Sales Owner",
+                  "role": "Sales Owner"
+                },
+                {
+                  "userPrincipalName": "pm@company.com",
+                  "displayName": "Project Manager",
+                  "role": "Project Manager"
+                },
+                {
+                  "userPrincipalName": "sponsor@company.com",
+                  "displayName": "Executive Sponsor",
+                  "role": "Sponsor"
+                },
+                {
+                  "userPrincipalName": "consultant@company.com",
+                  "displayName": "Consultant",
+                  "role": "Consultant"
+                },
+                {
+                  "userPrincipalName": "junior@company.com",
+                  "displayName": "Junior Consultant",
+                  "role": "Junior Consultant"
+                }
+              ],
+              "channels": [
+                {
+                  "displayName": "acme-industries-kickoff",
+                  "membershipType": "standard",
+                  "welcomeMessage": "Welcome everyone - this project for Acme Industries is now starting.\n\nTeam:\n- Sales Owner: Sales Owner\n- Sponsor: Executive Sponsor\n- Project Manager: Project Manager\n- Consultant: Consultant\n- Junior Consultant: Junior Consultant\n\nMain focus:\nClient wants a fast kickoff and weekly reporting.\n\nLet's use this channel for kickoff coordination and early project alignment."
+                }
+              ]
+            },
+            "message": "Teams workspace provisioned with 5 members and kickoff channel seeded with the AI-generated intro message.",
+            "integration": {
+              "kind": "teams",
+              "mode": "mock",
+              "implementation": "simulated",
+              "provider": "Microsoft Teams",
+              "liveEquivalent": "Microsoft Graph groups / teams / channels",
+              "note": "Simulated team provisioning only. No live Teams workspace was created."
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "events": {
+    "DEAL-001:won:2026-03-18T00:05:23.349Z": {
+      "eventId": "DEAL-001:won:2026-03-18T00:05:23.349Z",
+      "status": "processed",
+      "source": "pipedrive-webhook",
+      "occurredAt": "2026-03-18T00:05:23.349Z",
+      "createdAt": "2026-03-18T00:05:24.418Z",
+      "updatedAt": "2026-03-18T00:05:24.635Z",
+      "workflowRunId": "58fead25-0605-4f69-8854-8472d2521f85"
+    }
+  }
+}
